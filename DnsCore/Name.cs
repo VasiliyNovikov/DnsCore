@@ -14,7 +14,7 @@ namespace DnsCore
             if (labels == null)
                 throw new ArgumentNullException(nameof(labels));
             if (labels.Count == 0)
-                throw new ArgumentException("Number of labels must be greater than 0", nameof(labels));
+                throw new ArgumentException(Errors.Name_NumberOfLabelsIsZero, nameof(labels));
 
             Labels = labels.ToList();
         }
@@ -26,7 +26,7 @@ namespace DnsCore
             var labelStrings = name.Split('.', StringSplitOptions.RemoveEmptyEntries);
             var labels = new Label[labelStrings.Length];
             for (var i = 0; i < labels.Length; ++i)
-                labels[i] = labelStrings[i];
+                labels[i] = new Label(labelStrings[i]);
             Labels = labels;
         }
 
@@ -40,8 +40,5 @@ namespace DnsCore
             }
             return builder.ToString();
         }
-
-        public static implicit operator Name(string name) => new Name(name);
-        public static implicit operator string(Name name) => name.ToString();
     }
 }
