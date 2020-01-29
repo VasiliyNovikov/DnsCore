@@ -5,7 +5,7 @@ using System.Text;
 
 namespace DnsCore
 {
-    public class Name
+    public class Name : IEquatable<Name>
     {
         public IReadOnlyList<Label> Labels { get; }
 
@@ -40,5 +40,34 @@ namespace DnsCore
             }
             return builder.ToString();
         }
+
+        public bool Equals(Name? other)
+        {
+            if (other is null)
+                return false;
+
+            if (Labels.Count != other.Labels.Count)
+                return false;
+
+            for (var i = 0; i < Labels.Count; ++i)
+                if (Labels[i] != other.Labels[i])
+                    return false;
+
+            return true;
+        }
+
+        public override bool Equals(object? obj) => obj is Name name && this.Equals(name);
+
+        public override int GetHashCode()
+        {
+            var result = 0;
+            foreach(var label in Labels)
+                result = HashCode.Combine(result, label);
+            return result;
+        }
+
+        public static bool operator ==(Name left, Name right) => left is null ? right is null : left.Equals(right);
+
+        public static bool operator !=(Name left, Name right) => !(left == right);
     }
 }

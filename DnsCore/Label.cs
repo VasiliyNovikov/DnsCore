@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Globalization;
 
 namespace DnsCore
@@ -22,9 +21,9 @@ namespace DnsCore
 
         public override string ToString() => _label;
 
-        public override bool Equals(object obj) => obj is Label label && Equals(label);
+        public override bool Equals(object? obj) => obj is Label label && Equals(label);
 
-        public bool Equals(Label other) => other is object && _label.Equals(other._label, StringComparison.OrdinalIgnoreCase);
+        public bool Equals(Label? other) => other is object && _label.Equals(other._label, StringComparison.OrdinalIgnoreCase);
 
         public override int GetHashCode() => HashCode.Combine(_label);
 
