@@ -5,11 +5,11 @@ using System.Text;
 
 namespace DnsCore
 {
-    public class Name : IEquatable<Name>
+    public class DnsName : IEquatable<DnsName>
     {
-        public IReadOnlyList<Label> Labels { get; }
+        public IReadOnlyList<DnsLabel> Labels { get; }
 
-        public Name(IReadOnlyCollection<Label> labels)
+        public DnsName(IReadOnlyCollection<DnsLabel> labels)
         {
             if (labels == null)
                 throw new ArgumentNullException(nameof(labels));
@@ -19,14 +19,14 @@ namespace DnsCore
             Labels = labels.ToList();
         }
 
-        public Name(string name)
+        public DnsName(string name)
         {
             if (name == null)
                 throw new ArgumentNullException(nameof(name));
             var labelStrings = name.Split('.', StringSplitOptions.RemoveEmptyEntries);
-            var labels = new Label[labelStrings.Length];
+            var labels = new DnsLabel[labelStrings.Length];
             for (var i = 0; i < labels.Length; ++i)
-                labels[i] = new Label(labelStrings[i]);
+                labels[i] = new DnsLabel(labelStrings[i]);
             Labels = labels;
         }
 
@@ -41,7 +41,7 @@ namespace DnsCore
             return builder.ToString();
         }
 
-        public bool Equals(Name? other)
+        public bool Equals(DnsName? other)
         {
             if (other is null)
                 return false;
@@ -56,7 +56,7 @@ namespace DnsCore
             return true;
         }
 
-        public override bool Equals(object? obj) => obj is Name name && this.Equals(name);
+        public override bool Equals(object? obj) => obj is DnsName name && this.Equals(name);
 
         public override int GetHashCode()
         {
@@ -66,8 +66,8 @@ namespace DnsCore
             return result;
         }
 
-        public static bool operator ==(Name left, Name right) => left is null ? right is null : left.Equals(right);
+        public static bool operator ==(DnsName left, DnsName right) => left is null ? right is null : left.Equals(right);
 
-        public static bool operator !=(Name left, Name right) => !(left == right);
+        public static bool operator !=(DnsName left, DnsName right) => !(left == right);
     }
 }

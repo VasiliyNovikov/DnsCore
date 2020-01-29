@@ -3,13 +3,13 @@ using System.Globalization;
 
 namespace DnsCore
 {
-    public class Label : IEquatable<Label>
+    public class DnsLabel : IEquatable<DnsLabel>
     {
         private const int MaxLength = 63;
 
         private readonly string _label;
 
-        public Label(string label)
+        public DnsLabel(string label)
         {
             if (label == null)
                 throw new ArgumentNullException(nameof(label));
@@ -21,14 +21,14 @@ namespace DnsCore
 
         public override string ToString() => _label;
 
-        public override bool Equals(object? obj) => obj is Label label && Equals(label);
+        public override bool Equals(object? obj) => obj is DnsLabel label && Equals(label);
 
-        public bool Equals(Label? other) => other is object && _label.Equals(other._label, StringComparison.OrdinalIgnoreCase);
+        public bool Equals(DnsLabel? other) => other is object && _label.Equals(other._label, StringComparison.OrdinalIgnoreCase);
 
         public override int GetHashCode() => HashCode.Combine(_label);
 
-        public static bool operator ==(Label left, Label right) => left is null ? right is null : left.Equals(right);
+        public static bool operator ==(DnsLabel left, DnsLabel right) => left is null ? right is null : left.Equals(right);
 
-        public static bool operator !=(Label left, Label right) => !(left == right);
+        public static bool operator !=(DnsLabel left, DnsLabel right) => !(left == right);
     }
 }
