@@ -61,6 +61,24 @@ namespace DnsCore {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Label can contain letters or digits or hyphens.
+        /// </summary>
+        internal static string Label_CanContainLettersOrDigitsOrHyphen {
+            get {
+                return ResourceManager.GetString("Label_CanContainLettersOrDigitsOrHyphen", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Label should be at least 1 character length.
+        /// </summary>
+        internal static string Label_LengthShouldBeAtLeastOne {
+            get {
+                return ResourceManager.GetString("Label_LengthShouldBeAtLeastOne", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Label should have length less then or equal to {0}.
         /// </summary>
         internal static string Label_LengthShouldNotBeMoreThanMaxFormat {
@@ -70,11 +88,29 @@ namespace DnsCore {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Number of labels must be greater than 0.
+        ///   Looks up a localized string similar to Label should end with letter or digit.
         /// </summary>
-        internal static string Name_NumberOfLabelsIsZero {
+        internal static string Label_ShouldEndWithLetterOrDigit {
             get {
-                return ResourceManager.GetString("Name_NumberOfLabelsIsZero", resourceCulture);
+                return ResourceManager.GetString("Label_ShouldEndWithLetterOrDigit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Label should start with letter.
+        /// </summary>
+        internal static string Label_ShouldStartWithLetter {
+            get {
+                return ResourceManager.GetString("Label_ShouldStartWithLetter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Name should have length less then or equal to {0}.
+        /// </summary>
+        internal static string Name_LengthShouldNotBeMoreThanMaxFormat {
+            get {
+                return ResourceManager.GetString("Name_LengthShouldNotBeMoreThanMaxFormat", resourceCulture);
             }
         }
     }

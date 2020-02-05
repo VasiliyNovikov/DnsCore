@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 
@@ -7,27 +8,48 @@ namespace DnsCore
 {
     public class DnsName : IEquatable<DnsName>
     {
+        private const int MaxLength = 255;
+
         public IReadOnlyList<DnsLabel> Labels { get; }
 
-        public DnsName(IReadOnlyCollection<DnsLabel> labels)
+        public int Length { get; }
+
+        private DnsName(DnsLabel[]? labels)
         {
             if (labels == null)
                 throw new ArgumentNullException(nameof(labels));
-            if (labels.Count == 0)
-                throw new ArgumentException(Errors.Name_NumberOfLabelsIsZero, nameof(labels));
+            
+            var length = 0;
+            foreach (var label in labels)
+                length += label.Length;
 
-            Labels = labels.ToList();
+            if (length > MaxLength)
+                throw new ArgumentException(String.Format(CultureInfo.CurrentCulture, Errors.Name_LengthShouldNotBeMoreThanMaxFormat, MaxLength), nameof(labels));
+
+            Labels = labels;
+            Length = length;
+        }
+
+        public DnsName(IReadOnlyCollection<DnsLabel> labels)
+            : this(labels?.ToArray())
+        {
         }
 
         public DnsName(string name)
+            : this(Parse(name))
+        {
+        }
+
+        private static DnsLabel[] Parse(string name)
         {
             if (name == null)
                 throw new ArgumentNullException(nameof(name));
+
             var labelStrings = name.Split('.', StringSplitOptions.RemoveEmptyEntries);
             var labels = new DnsLabel[labelStrings.Length];
             for (var i = 0; i < labels.Length; ++i)
                 labels[i] = new DnsLabel(labelStrings[i]);
-            Labels = labels;
+            return labels;
         }
 
         public override string ToString()
@@ -56,7 +78,7 @@ namespace DnsCore
             return true;
         }
 
-        public override bool Equals(object? obj) => obj is DnsName name && this.Equals(name);
+        public override bool Equals(object? obj) => obj is DnsName name && Equals(name);
 
         public override int GetHashCode()
         {

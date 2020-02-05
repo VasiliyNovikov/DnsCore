@@ -117,10 +117,22 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="Label_CanContainLettersOrDigitsOrHyphen" xml:space="preserve">
+    <value>Label can contain letters or digits or hyphens</value>
+  </data>
+  <data name="Label_LengthShouldBeAtLeastOne" xml:space="preserve">
+    <value>Label should be at least 1 character length</value>
+  </data>
   <data name="Label_LengthShouldNotBeMoreThanMaxFormat" xml:space="preserve">
     <value>Label should have length less then or equal to {0}</value>
   </data>
-  <data name="Name_NumberOfLabelsIsZero" xml:space="preserve">
-    <value>Number of labels must be greater than 0</value>
+  <data name="Label_ShouldEndWithLetterOrDigit" xml:space="preserve">
+    <value>Label should end with letter or digit</value>
+  </data>
+  <data name="Label_ShouldStartWithLetter" xml:space="preserve">
+    <value>Label should start with letter</value>
+  </data>
+  <data name="Name_LengthShouldNotBeMoreThanMaxFormat" xml:space="preserve">
+    <value>Name should have length less then or equal to {0}</value>
   </data>
 </root>
