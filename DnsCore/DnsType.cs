@@ -68,6 +68,12 @@
         TXT = 16,
 
         /// <summary>
+        /// An IPv6 host address
+        /// </summary>
+        AAAA = 28,
+
+
+        /// <summary>
         /// A request for a transfer of an entire zone
         /// </summary>
         AXFR = 252,
