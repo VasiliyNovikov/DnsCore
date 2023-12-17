@@ -14,9 +14,17 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		Directory.Packages.props = Directory.Packages.props
 		DnsCore.targets = DnsCore.targets
 		LICENSE = LICENSE
+		README.md = README.md
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DnsCore.TestServer", "DnsCore.TestServer\DnsCore.TestServer.csproj", "{645B9E33-0A5C-454F-8B49-71459A528CCE}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".github", ".github", "{D3A0E077-7F61-4C4F-A81C-BE9006A523CF}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "workflows", "workflows", "{58B2E7C4-07FB-4147-AA66-45323508A4FF}"
+	ProjectSection(SolutionItems) = preProject
+		.github\workflows\pipeline.yml = .github\workflows\pipeline.yml
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -39,6 +47,9 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{58B2E7C4-07FB-4147-AA66-45323508A4FF} = {D3A0E077-7F61-4C4F-A81C-BE9006A523CF}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {A596E160-2399-4CE4-A256-696B2EC4A8D5}
