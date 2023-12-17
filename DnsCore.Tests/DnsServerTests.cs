@@ -96,7 +96,7 @@ public class DnsServerTests
         string output;
         try
         {
-            output = await Command("powershell", "-Command", $"Resolve-DnsName -Name {name} -Server '{ServerAddress}' -Type {type} | ConvertTo-Json");
+            output = await Command("pwsh", "-Command", $"Resolve-DnsName -Name {name} -Server '{ServerAddress}' -Type {type} | ConvertTo-Json");
         }
         catch (CommandException)
         {
