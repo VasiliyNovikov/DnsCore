@@ -23,4 +23,5 @@ dotnet_diagnostic.CA1720.severity = none  # https://learn.microsoft.com/en-us/do
 
 
 [*{Tests,Benchmarks}.cs]
+dotnet_diagnostic.CA1305.severity = none  # https://learn.microsoft.com/en-us/dotnet/fundamentals/code-analysis/quality-rules/ca1305
 dotnet_diagnostic.CA1707.severity = none  # https://learn.microsoft.com/en-us/dotnet/fundamentals/code-analysis/quality-rules/ca1707
