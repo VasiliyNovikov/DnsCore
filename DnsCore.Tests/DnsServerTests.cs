@@ -128,8 +128,31 @@ public class DnsServerTests
 
     private static async Task<List<DnsRecord>> ResolveLinux(string name, DnsRecordType type)
     {
-        await Task.Yield();
-        throw new NotImplementedException();
+        var output = await Command("dig", $"@{ServerAddress}", "-p", Port.ToString(), "-t", type.ToString(), "+nocmd", "+noall", "+answer", "+nostats", name);
+        var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        var result = new List<DnsRecord>(lines.Length);
+        foreach (var line in lines)
+        {
+            var fields = line.Split('\t');
+            var recordName = DnsName.Parse(fields[0]);
+            var recordType = Enum.Parse<DnsRecordType>(fields[3]);
+            var ttl = TimeSpan.FromSeconds(int.Parse(fields[1]));
+            var answerStr = fields[4];
+            switch (recordType)
+            {
+                case DnsRecordType.A:
+                case DnsRecordType.AAAA:
+                    result.Add(new DnsAddressRecord(recordName, IPAddress.Parse(answerStr), ttl));
+                    break;
+                case DnsRecordType.CNAME:
+                    result.Add(new DnsCNameRecord(recordName, DnsName.Parse(answerStr), ttl));
+                    break;
+                case DnsRecordType.PTR:
+                    result.Add(new DnsPtrRecord(recordName, DnsName.Parse(answerStr), ttl));
+                    break;
+            }
+        }
+        return result;
     }
 
     private static async Task<string> Command(string name, params string[] args)
