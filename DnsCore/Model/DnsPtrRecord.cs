@@ -2,8 +2,7 @@
 
 namespace DnsCore.Model;
 
-public sealed class DnsPtrRecord(DnsName name, DnsName ptrName, TimeSpan ttl)
-    : DnsNameRecord(name, DnsRecordType.PTR, ptrName, ttl)
+public sealed class DnsPtrRecord(DnsName name, DnsName data, TimeSpan ttl)
+    : DnsNameRecord(name, data, DnsRecordType.PTR, ttl)
 {
-    public DnsName PtrName => AnswerName;
 }

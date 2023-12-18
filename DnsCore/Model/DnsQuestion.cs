@@ -5,27 +5,14 @@ using DnsCore.Encoding;
 
 namespace DnsCore.Model;
 
-public class DnsQuestion(DnsName name, DnsRecordType recordType, DnsClass @class = DnsClass.IN)
-    : IEquatable<DnsQuestion>, IEqualityOperators<DnsQuestion, DnsQuestion, bool>
+public sealed class DnsQuestion(DnsName name, DnsRecordType recordType, DnsClass @class = DnsClass.IN)
+    : DnsRecordBase(name, recordType, @class)
+    , IEquatable<DnsQuestion>
+    , IEqualityOperators<DnsQuestion, DnsQuestion, bool>
 {
-    public DnsName Name { get; } = name;
-    public DnsRecordType RecordType { get; } = recordType;
-    public DnsClass Class { get; } = @class;
-
-    public override string ToString() => $"{Name,-16} {Class,-4} {RecordType,-6}";
-
-    internal virtual void Encode(ref DnsWriter writer)
+    internal static new DnsQuestion Decode(ref DnsReader reader)
     {
-        Name.Encode(ref writer);
-        writer.Write((ushort)RecordType);
-        writer.Write((ushort)Class);
-    }
-
-    internal static DnsQuestion Decode(ref DnsReader reader)
-    {
-        var name = DnsName.Decode(ref reader);
-        var type = (DnsRecordType)reader.Read<ushort>();
-        var @class = (DnsClass)reader.Read<ushort>();
+        var (name, type, @class) = DnsRecordBase.Decode(ref reader);
         return new DnsQuestion(name, type, @class);
     }
 

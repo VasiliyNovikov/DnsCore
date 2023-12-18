@@ -96,7 +96,7 @@ public readonly struct DnsLabel
     {
         writer.Write((byte)Length);
         if (!IsEmpty)
-            Encoding.GetBytes(_label.AsSpan(), writer.Advance(Length).Buffer);
+            Encoding.GetBytes(_label.AsSpan(), writer.Advance(Length));
     }
 
     internal static DnsLabel Decode(ref DnsReader reader)

@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging;
 
 namespace DnsCore.Server;
 
-public sealed partial class DnsUdpServer : IDisposable
+public sealed partial class DnsUdpServer : IDisposable, IAsyncDisposable
 {
     private const int MaxMessageSize = 512;
     private const ushort DefaultPort = 53;
@@ -55,17 +55,19 @@ public sealed partial class DnsUdpServer : IDisposable
     {
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         _cancellation.Cancel();
-        _serverTask.Wait();
+        await _serverTask.ConfigureAwait(false);
         _ongoingRequests.Writer.Complete();
-        _ongoingRequestTask.Wait();
+        await _ongoingRequestTask.ConfigureAwait(false);
         _cancellation.Dispose();
         _serverSocket.Dispose();
         if (_logger is not null)
             LogStoppedDnsServer(_logger, _endPoint);
     }
+
+    public void Dispose() => DisposeAsync().AsTask().Wait();
 
     private async Task Run()
     {
@@ -80,8 +82,8 @@ public sealed partial class DnsUdpServer : IDisposable
                     var rawRequest = await _serverSocket.ReceiveFromAsync(buffer, SocketFlags.None, clientEndPoint, _cancellation.Token).ConfigureAwait(false);
                     try
                     {
-                        var message = DnsRequest.Decode(buffer.AsSpan(0, rawRequest.ReceivedBytes));
-                        await _ongoingRequests.Writer.WriteAsync(HandleRequestCore(rawRequest.RemoteEndPoint, message)).ConfigureAwait(false);
+                        var request = DnsRequest.Decode(buffer.AsSpan(0, rawRequest.ReceivedBytes));
+                        await _ongoingRequests.Writer.WriteAsync(HandleRequestCore(rawRequest.RemoteEndPoint, request)).ConfigureAwait(false);
                     }
                     catch (FormatException e)
                     {

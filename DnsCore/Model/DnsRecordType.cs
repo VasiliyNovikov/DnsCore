@@ -1,6 +1,6 @@
 ﻿namespace DnsCore.Model;
 
-public enum DnsRecordType
+public enum DnsRecordType : ushort
 {
     // A host address
     A = 1,

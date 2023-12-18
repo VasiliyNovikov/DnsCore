@@ -37,7 +37,7 @@ public class DnsServerTests
     {
         DnsQuestion? actualQuestion = null;
 
-        using var server = new DnsUdpServer(ServerAddress, Port, ProcessRequest, Logger);
+        await using var server = new DnsUdpServer(ServerAddress, Port, ProcessRequest, Logger);
 
         var actualAnswers = await Resolve(question.Name.ToString(), question.RecordType);
 
@@ -60,13 +60,11 @@ public class DnsServerTests
             {
                 case DnsRecordType.A:
                 case DnsRecordType.AAAA:
-                    Assert.IsTrue(((DnsAddressRecord)answer).Address.Equals(((DnsAddressRecord)actualAnswer).Address));
+                    Assert.IsTrue(((DnsAddressRecord)answer).Data.Equals(((DnsAddressRecord)actualAnswer).Data));
                     break;
                 case DnsRecordType.CNAME:
-                    Assert.AreEqual(((DnsCNameRecord)answer).Alias, ((DnsCNameRecord)actualAnswer).Alias);
-                    break;
                 case DnsRecordType.PTR:
-                    Assert.AreEqual(((DnsPtrRecord)answer).PtrName, ((DnsPtrRecord)actualAnswer).PtrName);
+                    Assert.AreEqual(((DnsNameRecord)answer).Data, ((DnsNameRecord)actualAnswer).Data);
                     break;
                 default:
                     CollectionAssert.AreEqual(((DnsRawRecord)answer).Data, ((DnsRawRecord)actualAnswer).Data);
@@ -131,6 +129,9 @@ public class DnsServerTests
                     break;
                 case DnsRecordType.CNAME:
                     result.Add(new DnsCNameRecord(recordName, DnsName.Parse(powerShellRecord.NameHost!), ttl));
+                    break;
+                case DnsRecordType.PTR:
+                    result.Add(new DnsPtrRecord(recordName, DnsName.Parse(powerShellRecord.NameHost!), ttl));
                     break;
             }
         }
