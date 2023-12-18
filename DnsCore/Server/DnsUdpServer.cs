@@ -63,6 +63,8 @@ public sealed partial class DnsUdpServer : IDisposable
         _ongoingRequestTask.Wait();
         _cancellation.Dispose();
         _serverSocket.Dispose();
+        if (_logger is not null)
+            LogStoppedDnsServer(_logger, _endPoint);
     }
 
     private async Task Run()
@@ -75,11 +77,11 @@ public sealed partial class DnsUdpServer : IDisposable
             {
                 try
                 {
-                    var rawRequest = await _serverSocket.ReceiveFromAsync(buffer, SocketFlags.None, clientEndPoint, _cancellation.Token);
+                    var rawRequest = await _serverSocket.ReceiveFromAsync(buffer, SocketFlags.None, clientEndPoint, _cancellation.Token).ConfigureAwait(false);
                     try
                     {
                         var message = DnsRequest.Decode(buffer.AsSpan(0, rawRequest.ReceivedBytes));
-                        await _ongoingRequests.Writer.WriteAsync(HandleRequestCore(rawRequest.RemoteEndPoint, message));
+                        await _ongoingRequests.Writer.WriteAsync(HandleRequestCore(rawRequest.RemoteEndPoint, message)).ConfigureAwait(false);
                     }
                     catch (FormatException e)
                     {
@@ -89,7 +91,7 @@ public sealed partial class DnsUdpServer : IDisposable
                 }
                 catch (SocketException e)
                 {
-                    if (_logger != null)
+                    if (_logger is not null)
                         LogErrorReceivingDnsRequest(_logger, e);
                 }
             }
@@ -107,8 +109,8 @@ public sealed partial class DnsUdpServer : IDisposable
 
     private async Task ProcessOngoingRequests()
     {
-        await foreach (var request in _ongoingRequests.Reader.ReadAllAsync())
-            await request;
+        await foreach (var request in _ongoingRequests.Reader.ReadAllAsync().ConfigureAwait(false))
+            await request.ConfigureAwait(false);
     }
 
     private async Task HandleRequestCore(EndPoint clientEndPoint, DnsRequest request)
@@ -117,14 +119,14 @@ public sealed partial class DnsUdpServer : IDisposable
             LogDnsRequest(_logger, clientEndPoint, request);
         try
         {
-            var response = await _handler(request, _cancellation.Token);
+            var response = await _handler(request, _cancellation.Token).ConfigureAwait(false);
             if (_logger is not null)
                 LogDnsResponse(_logger, clientEndPoint, response);
             var buffer = ArrayPool<byte>.Shared.Rent(MaxMessageSize);
             try
             {
                 var length = response.Encode(buffer);
-                await _serverSocket.SendToAsync(buffer.AsMemory(0, length), SocketFlags.None, clientEndPoint, _cancellation.Token);
+                await _serverSocket.SendToAsync(buffer.AsMemory(0, length), SocketFlags.None, clientEndPoint, _cancellation.Token).ConfigureAwait(false);
             }
             finally
             {
@@ -146,6 +148,9 @@ public sealed partial class DnsUdpServer : IDisposable
 
     [LoggerMessage(LogLevel.Debug, "Started DNS server on {EndPoint}")]
     private static partial void LogStartedDnsServer(ILogger logger, EndPoint endPoint);
+
+    [LoggerMessage(LogLevel.Debug, "Stopped DNS server on {EndPoint}")]
+    private static partial void LogStoppedDnsServer(ILogger logger, EndPoint endPoint);
 
     [LoggerMessage(LogLevel.Error, "Error receiving DNS request")]
     private static partial void LogErrorReceivingDnsRequest(ILogger logger, Exception e);

@@ -12,7 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 var address = IPAddress.Parse(args[0]);
-var port = ushort.Parse(args[1], CultureInfo.InvariantCulture);
+var port = args.Length < 2 ? (ushort)53 : ushort.Parse(args[1], CultureInfo.InvariantCulture);
 
 var records = new DnsRecord[]
 {
