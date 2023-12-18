@@ -12,7 +12,6 @@ using DnsCore.Server;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Console;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DnsCore.Tests;
@@ -97,12 +96,9 @@ public class DnsServerTests
 
     private static async Task<List<DnsRecord>> Resolve(string name, DnsRecordType type)
     {
-        if (OperatingSystem.IsWindows())
-            return await ResolveWindows(name, type);
-        else if (OperatingSystem.IsLinux())
-            return await ResolveLinux(name, type);
-        else
-            throw new PlatformNotSupportedException();
+        return OperatingSystem.IsWindows()
+            ? await ResolveWindows(name, type)
+            : await ResolveUnix(name, type);
     }
 
     private sealed record class PowerShellDnsRecord(string Name, DnsRecordType Type, int TTL, string? Address, string? NameHost);
@@ -141,7 +137,7 @@ public class DnsServerTests
         return result;
     }
 
-    private static async Task<List<DnsRecord>> ResolveLinux(string name, DnsRecordType type)
+    private static async Task<List<DnsRecord>> ResolveUnix(string name, DnsRecordType type)
     {
         var output = await Command("dig", $"@{ServerAddress}", "-p", Port.ToString(), "-t", type.ToString(), "+nocmd", "+noall", "+answer", "+nostats", name);
         var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
