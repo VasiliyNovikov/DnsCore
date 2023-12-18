@@ -10,6 +10,9 @@ using System.Threading.Tasks;
 using DnsCore.Model;
 using DnsCore.Server;
 
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Console;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DnsCore.Tests;
@@ -19,15 +22,27 @@ public class DnsServerTests
 {
     private static readonly IPAddress ServerAddress = IPAddress.Loopback;
     private static readonly ushort Port = (ushort)(OperatingSystem.IsWindows() ? 53 : 5553);
+    private static readonly ILogger Logger;
+
+    static DnsServerTests()
+    {
+        var services = new ServiceCollection()
+            .AddLogging(builder => builder
+                .AddSimpleConsole(options => options.TimestampFormat = "hh:mm:ss.ff ")
+                .SetMinimumLevel(LogLevel.Debug))
+            .BuildServiceProvider();
+        Logger = services.GetRequiredService<ILogger<DnsServerTests>>();
+    }
 
     public async Task Do_Test_Request_Response(DnsQuestion question, params DnsRecord[] answers)
     {
-        DnsQuestion actualQuestion = null!;
+        DnsQuestion? actualQuestion = null;
 
-        using var server = new DnsUdpServer(ServerAddress, Port, ProcessRequest);
+        using var server = new DnsUdpServer(ServerAddress, Port, ProcessRequest, Logger);
 
         var actualAnswers = await Resolve(question.Name.ToString(), question.RecordType);
 
+        Assert.IsNotNull(actualQuestion);
         Assert.AreEqual(question.Name, actualQuestion.Name);
         Assert.AreEqual(question.RecordType, actualQuestion.RecordType);
         Assert.AreEqual(question.Class, actualQuestion.Class);

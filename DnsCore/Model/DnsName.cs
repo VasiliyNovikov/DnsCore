@@ -1,12 +1,16 @@
-﻿using System;
+using System;
 using System.Numerics;
-using System.Text;
 
 using DnsCore.Encoding;
 
+using Microsoft.Extensions.Primitives;
+
 namespace DnsCore.Model;
 
-public sealed class DnsName : IEquatable<DnsName>, IEqualityOperators<DnsName, DnsName, bool>
+public sealed class DnsName
+    : IEquatable<DnsName>
+    , IEqualityOperators<DnsName, DnsName, bool>
+    , ISpanFormattable
 {
     private const byte MaxLength = 255;
     private const byte CompressionMask = 0b1100_0000;
@@ -14,46 +18,52 @@ public sealed class DnsName : IEquatable<DnsName>, IEqualityOperators<DnsName, D
     private const ushort OffsetMaskInverted = unchecked((ushort)~OffsetMask);
     private const char Separator = '.';
 
-    private readonly DnsLabel _label;
-    private readonly DnsName? _parent;
-
     public static DnsName Empty { get; } = new(DnsLabel.Empty, null);
 
     public int Length { get; }
 
     public bool IsEmpty => Length == 1;
 
-    private DnsName(DnsLabel label, DnsName? parent)
+    public DnsLabel Label { get; }
+
+    public DnsName? Parent { get; }
+
+    public DnsName(DnsLabel label, DnsName? parent)
     {
         if (label.IsEmpty && parent is not null)
             throw new ArgumentException("Parent name should be null if name label is empty", nameof(parent));
 
-        var length = label.Length + 1 + (parent?.Length ?? 0);
-        if (length > MaxLength)
-            throw new ArgumentException("Name length exceeds maximum length", nameof(label));
+        var length = label.Length + 1;
+        if (parent is not null && !parent.IsEmpty)
+        {
+            length += parent.Length;
+            if (length > MaxLength)
+                throw new ArgumentException("Name length exceeds maximum length", nameof(parent));
+        }
 
-        _label = label;
-        _parent = parent;
+        Label = label;
+        Parent = parent;
         Length = length;
     }
 
-    private static DnsName Parse(ReadOnlyMemory<char> name)
+    private static DnsName ParseCore(StringSegment name)
     {
-        if (name.IsEmpty)
+        if (name.Length == 0)
             return Empty;
 
-        if (name.Span[^1] == Separator)
-            name = name[..^1];
+        var lasIndex = name.Length - 1;
+        if (name[lasIndex] == Separator)
+            name = name.Subsegment(0, lasIndex);
 
-        if (name.IsEmpty)
+        if (name.Length == 0)
             return Empty;
 
-        var separatorIndex = name.Span.IndexOf(Separator);
+        var separatorIndex = name.IndexOf(Separator);
         try
         {
             return separatorIndex == -1
-                ? new DnsName(DnsLabel.Parse(name), Empty)
-                : new DnsName(DnsLabel.Parse(name[..separatorIndex]), Parse(name[(separatorIndex + 1)..]));
+                ? new DnsName(DnsLabel.ParseCore(name), Empty)
+                : new DnsName(DnsLabel.ParseCore(name.Subsegment(0, separatorIndex)), ParseCore(name.Subsegment(separatorIndex + 1)));
         }
         catch (ArgumentException e)
         {
@@ -61,17 +71,38 @@ public sealed class DnsName : IEquatable<DnsName>, IEqualityOperators<DnsName, D
         }
     }
 
-    public static DnsName Parse(string name) => Parse(name.AsMemory());
+    public static DnsName Parse(string name) => ParseCore(name);
 
-    public override string ToString()
+    public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
     {
-        var builder = new StringBuilder(Length);
-        builder.Append(_label.ToString());
-        builder.Append('.');
-        if (_parent is not null && !_parent.IsEmpty)
-            builder.Append(_parent);
-        return builder.ToString();
+        if (!Label.TryFormat(destination, out charsWritten, format, provider))
+            return false;
+
+        if (charsWritten >= destination.Length)
+            return false;
+
+        destination[charsWritten++] = Separator;
+
+        if (Parent is null || Parent.IsEmpty)
+            return true;
+
+        if (Parent.TryFormat(destination[charsWritten..], out int parentCharsWritten, format, provider))
+        {
+            charsWritten += parentCharsWritten;
+            return true;
+        }
+
+        return false;
     }
+
+    public string ToString(string? format, IFormatProvider? formatProvider)
+    {
+        Span<char> buffer = stackalloc char[Length];
+        TryFormat(buffer, out var charsWritten, default, formatProvider);
+        return new string(buffer);
+    }
+
+    public override string ToString() => ToString(default, default);
 
     internal void Encode(ref DnsWriter writer)
     {
@@ -83,8 +114,8 @@ public sealed class DnsName : IEquatable<DnsName>, IEqualityOperators<DnsName, D
 
         writer.AddNameOffset(this, writer.Position);
 
-        _label.Encode(ref writer);
-        _parent?.Encode(ref writer);
+        Label.Encode(ref writer);
+        Parent?.Encode(ref writer);
     }
 
     internal static DnsName Decode(ref DnsReader reader)
@@ -118,17 +149,21 @@ public sealed class DnsName : IEquatable<DnsName>, IEqualityOperators<DnsName, D
     {
         return other is not null &&
                Length == other.Length &&
-               _label == other._label &&
-               (_parent is null
-                   ? other._parent is null
-                   : other._parent is not null && _parent.Equals(other._parent));
+               Label == other.Label &&
+               (Parent is null
+                   ? other.Parent is null
+                   : other.Parent is not null && Parent.Equals(other.Parent));
     }
 
     public override bool Equals(object? obj) => obj is DnsName name && Equals(name);
 
-    public override int GetHashCode() => HashCode.Combine(_label, _parent);
+    public override int GetHashCode() => HashCode.Combine(Label, Parent);
 
     public static bool operator ==(DnsName? left, DnsName? right) => left?.Equals(right) ?? right is null;
 
     public static bool operator !=(DnsName? left, DnsName? right) => !(left == right);
+
+    public static explicit operator DnsName(string name) => Parse(name);
+
+    public static explicit operator string(DnsName name) => name.ToString();
 }
