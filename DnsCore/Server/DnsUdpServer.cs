@@ -7,10 +7,11 @@ using System.Threading.Tasks;
 using System.Threading;
 using System;
 using Microsoft.Extensions.Logging;
+using System.Collections.Generic;
 
 namespace DnsCore.Server;
 
-public sealed partial class DnsUdpServer : IDisposable
+public sealed partial class DnsUdpServer : IDisposable, IAsyncDisposable
 {
     private const int MaxMessageSize = 512;
     private const ushort DefaultPort = 53;
@@ -18,12 +19,8 @@ public sealed partial class DnsUdpServer : IDisposable
     private readonly EndPoint _endPoint;
     private readonly Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> _handler;
     private readonly ILogger? _logger;
-    private readonly Socket _serverSocket;
-    private readonly Channel<Task> _ongoingRequests = Channel.CreateUnbounded<Task>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = true });
-
-    private readonly CancellationTokenSource _cancellation = new();
-    private readonly Task _serverTask;
-    private readonly Task _ongoingRequestTask;
+    private Task? _runTask;
+    private CancellationTokenSource? _runCancellation;
 
     public DnsUdpServer(EndPoint endPoint, Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, ILogger? logger = null)
     {
@@ -33,16 +30,6 @@ public sealed partial class DnsUdpServer : IDisposable
         _endPoint = endPoint;
         _handler = handler;
         _logger = logger;
-
-        _ongoingRequestTask = ProcessOngoingRequests();
-
-
-        _serverSocket = new Socket(endPoint.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
-        _serverSocket.Bind(endPoint);
-        _serverTask = Run();
-
-        if (_logger is not null)
-            LogStartedDnsServer(_logger, endPoint);
     }
 
     public DnsUdpServer(IPAddress address, ushort port, Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, ILogger? logger = null)
@@ -55,92 +42,185 @@ public sealed partial class DnsUdpServer : IDisposable
     {
     }
 
-    public void Dispose()
+    public void Start()
     {
-        _cancellation.Cancel();
-        _serverTask.Wait();
-        _ongoingRequests.Writer.Complete();
-        _ongoingRequestTask.Wait();
-        _cancellation.Dispose();
-        _serverSocket.Dispose();
-        if (_logger is not null)
-            LogStoppedDnsServer(_logger, _endPoint);
+        if (_runTask is not null)
+            throw new InvalidOperationException("Server is already running");
+
+        _runCancellation = new CancellationTokenSource();
+        _runTask = Run(_runCancellation.Token);
     }
 
-    private async Task Run()
+    public async ValueTask DisposeAsync()
     {
-        var clientEndPoint = new IPEndPoint(_serverSocket.AddressFamily == AddressFamily.InterNetwork ? IPAddress.Any : IPAddress.IPv6Any, 0);
-        var buffer = new byte[MaxMessageSize];
+        if (_runCancellation is not null)
+            await _runCancellation.CancelAsync().ConfigureAwait(false);
+        if (_runTask is not null)
+            try
+            {
+                await _runTask.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        _runCancellation?.Dispose();
+    }
+
+    public void Dispose() => DisposeAsync().AsTask().Wait();
+
+    public async Task Run(CancellationToken cancellationToken = default)
+    {
         try
         {
-            while (true)
-            {
-                try
-                {
-                    var rawRequest = await _serverSocket.ReceiveFromAsync(buffer, SocketFlags.None, clientEndPoint, _cancellation.Token).ConfigureAwait(false);
-                    try
-                    {
-                        var message = DnsRequest.Decode(buffer.AsSpan(0, rawRequest.ReceivedBytes));
-                        await _ongoingRequests.Writer.WriteAsync(HandleRequestCore(rawRequest.RemoteEndPoint, message)).ConfigureAwait(false);
-                    }
-                    catch (FormatException e)
-                    {
-                        if (_logger != null)
-                            LogErrorParsingDnsRequest(_logger, e, rawRequest.RemoteEndPoint);
-                    }
-                }
-                catch (SocketException e)
-                {
-                    if (_logger is not null)
-                        LogErrorReceivingDnsRequest(_logger, e);
-                }
-            }
+            using var socket = new Socket(_endPoint.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
+            socket.Bind(_endPoint);
+            if (_logger is not null)
+                LogStartedDnsServer(_logger, _endPoint);
+            var tasks = Channel.CreateUnbounded<Task>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
+#pragma warning disable CA2016 // On purpose
+            await tasks.Writer.WriteAsync(ReceiveRequests(tasks, socket, cancellationToken));
+#pragma warning restore CA2016
+            await WaitForTasksToCompleteOrFail(tasks.Reader);
+            cancellationToken.ThrowIfCancellationRequested();
         }
         catch (OperationCanceledException)
         {
+            throw;
         }
         catch (Exception e)
         {
             if (_logger is not null)
                 LogErrorRunningDnsServer(_logger, e, _endPoint);
-            throw;
+        }
+        finally
+        {
+            if (_logger is not null)
+                LogStoppedDnsServer(_logger, _endPoint);
         }
     }
 
-    private async Task ProcessOngoingRequests()
+    private static async Task WaitForTasksToCompleteOrFail(ChannelReader<Task> tasks)
     {
-        await foreach (var request in _ongoingRequests.Reader.ReadAllAsync().ConfigureAwait(false))
-            await request.ConfigureAwait(false);
+        List<Task> pendingTasks = new();
+        while (await tasks.WaitToReadAsync())
+        {
+            while (tasks.TryRead(out var task))
+                pendingTasks.Add(task);
+
+            while (pendingTasks.Count > 0)
+            {
+                var task = await Task.WhenAny(pendingTasks);
+                if (task.IsFaulted)
+                    await task;
+                pendingTasks.Remove(task);
+            }
+        }
     }
 
-    private async Task HandleRequestCore(EndPoint clientEndPoint, DnsRequest request)
+    private async Task ReceiveRequests(Channel<Task> tasks, Socket socket, CancellationToken cancellationToken = default)
     {
-        if (_logger is not null)
-            LogDnsRequest(_logger, clientEndPoint, request);
+        var clientEndPoint = new IPEndPoint(socket.AddressFamily == AddressFamily.InterNetwork ? IPAddress.Any : IPAddress.IPv6Any, 0);
+        var buffer = new byte[MaxMessageSize];
         try
         {
-            var response = await _handler(request, _cancellation.Token).ConfigureAwait(false);
-            if (_logger is not null)
-                LogDnsResponse(_logger, clientEndPoint, response);
-            var buffer = ArrayPool<byte>.Shared.Rent(MaxMessageSize);
-            try
+            while (true)
             {
-                var length = response.Encode(buffer);
-                await _serverSocket.SendToAsync(buffer.AsMemory(0, length), SocketFlags.None, clientEndPoint, _cancellation.Token).ConfigureAwait(false);
-            }
-            finally
-            {
-                ArrayPool<byte>.Shared.Return(buffer);
+                SocketReceiveFromResult rawRequest;
+                try
+                {
+                    rawRequest = await socket.ReceiveFromAsync(buffer, SocketFlags.None, clientEndPoint, cancellationToken).ConfigureAwait(false);
+                }
+                catch (SocketException e)
+                {
+                    if (_logger is not null)
+                        LogErrorReceivingDnsRequest(_logger, e);
+                    continue;
+                }
+
+                DnsRequest request;
+                try
+                {
+                    request = DnsRequest.Decode(buffer.AsSpan(0, rawRequest.ReceivedBytes));
+                }
+                catch (FormatException e)
+                {
+                    if (_logger != null)
+                        LogErrorDecodingDnsRequest(_logger, e, rawRequest.RemoteEndPoint);
+                    continue;
+                }
+#pragma warning disable CA2016 // On purpose
+                await tasks.Writer.WriteAsync(HandleRequest(socket, rawRequest.RemoteEndPoint, request, cancellationToken));
+#pragma warning restore CA2016
             }
         }
         catch (OperationCanceledException)
         {
         }
+        finally
+        {
+            tasks.Writer.Complete();
+        }
+    }
+
+    private async Task HandleRequest(Socket socket, EndPoint clientEndPoint, DnsRequest request, CancellationToken cancellationToken)
+    {
+        await Task.Yield();
+        var response = await InvokeRequestHandler(clientEndPoint, request, cancellationToken).ConfigureAwait(false);
+        var buffer = ArrayPool<byte>.Shared.Rent(MaxMessageSize);
+        try
+        {
+            int length = EncodeResponse(clientEndPoint, request, response, buffer);
+            await socket.SendToAsync(buffer.AsMemory(0, length), SocketFlags.None, clientEndPoint, cancellationToken).ConfigureAwait(false);
+        }
+        catch (SocketException e)
+        {
+            if (_logger is not null)
+                LogErrorSendingDnsResponse(_logger, e, clientEndPoint, response);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
+    }
+
+    private async ValueTask<DnsResponse> InvokeRequestHandler(EndPoint clientEndPoint, DnsRequest request, CancellationToken cancellationToken)
+    {
+        if (_logger is not null)
+            LogDnsRequest(_logger, clientEndPoint, request);
+        DnsResponse response;
+        try
+        {
+            response = await _handler(request, cancellationToken).ConfigureAwait(false);
+        }
         catch (Exception e)
         {
-            if (_logger is null)
-                throw;
-            LogErrorHandlingDnsRequest(_logger, e, clientEndPoint, request);
+            if (_logger is not null)
+                LogErrorHandlingDnsRequest(_logger, e, clientEndPoint, request);
+            response = request.Reply();
+            response.Status = DnsResponseStatus.ServerFailure;
+        }
+        if (_logger is not null)
+            LogDnsResponse(_logger, clientEndPoint, response);
+        return response;
+    }
+
+    private int EncodeResponse(EndPoint clientEndPoint, DnsRequest request, DnsResponse response, Span<byte> buffer)
+    {
+        try
+        {
+            return response.Encode(buffer);
+        }
+        catch (FormatException e)
+        {
+            if (_logger is not null)
+                LogErrorDnsResponseTruncated(_logger, e, clientEndPoint, response);
+
+            response = request.Reply();
+            response.Truncated = true;
+            return response.Encode(buffer);
         }
     }
 
@@ -155,8 +235,14 @@ public sealed partial class DnsUdpServer : IDisposable
     [LoggerMessage(LogLevel.Error, "Error receiving DNS request")]
     private static partial void LogErrorReceivingDnsRequest(ILogger logger, Exception e);
 
-    [LoggerMessage(LogLevel.Error, "Error parsing DNS request from {ClientEndPoint}")]
-    private static partial void LogErrorParsingDnsRequest(ILogger logger, Exception e, EndPoint clientEndPoint);
+    [LoggerMessage(LogLevel.Error, "Error sending DNS response to {ClientEndPoint}:\n{Response}")]
+    private static partial void LogErrorSendingDnsResponse(ILogger logger, Exception e, EndPoint clientEndPoint, DnsResponse response);
+
+    [LoggerMessage(LogLevel.Error, "Error decoding DNS request from {ClientEndPoint}")]
+    private static partial void LogErrorDecodingDnsRequest(ILogger logger, Exception e, EndPoint clientEndPoint);
+
+    [LoggerMessage(LogLevel.Error, "Truncated DNS response to {ClientEndPoint}:\n{Response}")]
+    private static partial void LogErrorDnsResponseTruncated(ILogger logger, Exception e, EndPoint clientEndPoint, DnsResponse response);
 
     [LoggerMessage(LogLevel.Critical, "Error running DNS server on {EndPoint}")]
     private static partial void LogErrorRunningDnsServer(ILogger logger, Exception e, EndPoint endPoint);

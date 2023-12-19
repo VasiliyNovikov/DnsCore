@@ -11,6 +11,7 @@ public sealed class DnsResponse : DnsMessage
 {
     public bool RecursionAvailable { get; set; }
     public bool AuthoritativeAnswer { get; set; }
+    public bool Truncated { get; set; }
     public DnsResponseStatus Status { get; set; }
     public List<DnsRecord> Answers { get; } = new(1);
     public List<DnsRecord> Authorities { get; } = new();
@@ -21,6 +22,7 @@ public sealed class DnsResponse : DnsMessage
     {
         RecursionAvailable = (rawMessage.Flags & DnsFlags.RecursionAvailable) == DnsFlags.RecursionAvailable;
         AuthoritativeAnswer = (rawMessage.Flags & DnsFlags.AuthoritativeAnswer) == DnsFlags.AuthoritativeAnswer;
+        Truncated = (rawMessage.Flags & DnsFlags.Truncated) == DnsFlags.Truncated;
         Status = (rawMessage.Flags & DnsFlags.ResponseCodeMask) switch
         {
             DnsFlags.FormatError => DnsResponseStatus.FormatError,
@@ -53,6 +55,8 @@ public sealed class DnsResponse : DnsMessage
         base.FormatHeader(target);
         target.AppendLine(CultureInfo.InvariantCulture, $"RA:    {RecursionAvailable}");
         target.AppendLine(CultureInfo.InvariantCulture, $"AA:    {AuthoritativeAnswer}");
+        if (Truncated)
+            target.AppendLine(CultureInfo.InvariantCulture, $"TC:    {Truncated}");
         target.AppendLine(CultureInfo.InvariantCulture, $"RCode: {Status}");
     }
 
@@ -90,6 +94,8 @@ public sealed class DnsResponse : DnsMessage
             flags |= DnsFlags.RecursionAvailable;
         if (AuthoritativeAnswer)
             flags |= DnsFlags.AuthoritativeAnswer;
+        if (Truncated)
+            flags |= DnsFlags.Truncated;
         flags |= Status switch
         {
             DnsResponseStatus.Ok => DnsFlags.NoError,

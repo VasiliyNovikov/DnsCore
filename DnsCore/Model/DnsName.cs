@@ -106,13 +106,15 @@ public sealed class DnsName
 
     internal void Encode(ref DnsWriter writer)
     {
-        if (Length > 0 && writer.GetNameOffset(this, out var offset))
+        if (!IsEmpty)
         {
-            writer.Write((ushort)(offset | 0b1100_0000_0000_0000));
-            return;
+            if (writer.GetNameOffset(this, out var offset))
+            {
+                writer.Write((ushort)(offset | 0b1100_0000_0000_0000));
+                return;
+            }
+            writer.AddNameOffset(this, writer.Position);
         }
-
-        writer.AddNameOffset(this, writer.Position);
 
         Label.Encode(ref writer);
         Parent?.Encode(ref writer);
@@ -152,7 +154,7 @@ public sealed class DnsName
                Label == other.Label &&
                (Parent is null
                    ? other.Parent is null
-                   : other.Parent is not null && Parent.Equals(other.Parent));
+                   : Parent.Equals(other.Parent));
     }
 
     public override bool Equals(object? obj) => obj is DnsName name && Equals(name);

@@ -8,19 +8,32 @@ using DnsCore.Model;
 
 namespace DnsCore.Encoding;
 
-internal ref struct DnsReader(ReadOnlySpan<byte> buffer)
+internal ref struct DnsReader
 {
-    private readonly ReadOnlySpan<byte> _buffer = buffer;
-    private Dictionary<int, DnsName>? _offsets;
+    private readonly ReadOnlySpan<byte> _originalBuffer;
+    private readonly ReadOnlySpan<byte> _slicedBuffer;
+    private readonly Dictionary<int, DnsName> _offsets = new(1);
 
     public int Position { get; private set; }
 
-    public readonly DnsReader Seek(int position) => new(_buffer[position..]);
-    public readonly DnsReader Seek(int position, int length) => new(_buffer.Slice(position, length));
+    private DnsReader(ReadOnlySpan<byte> originalBuffer, int position, int length)
+    {
+        var actualLength = position + length;
+        _originalBuffer = originalBuffer;
+        _slicedBuffer = originalBuffer[..(position + length)];
+        Position = position;
+    }
+
+    public DnsReader(ReadOnlySpan<byte> buffer) : this(buffer, 0, buffer.Length) { }
+
+    public readonly DnsReader Seek(int position) => new(_originalBuffer, position, _originalBuffer.Length - position);
+    public readonly DnsReader Seek(int position, int length) => new(_originalBuffer, position, length);
+
+    private readonly ReadOnlySpan<byte> Peek(int length) => _slicedBuffer.Slice(Position, length);
 
     public readonly TInt Peek<TInt>() where TInt : unmanaged, IBinaryInteger<TInt>, IMinMaxValue<TInt>
     {
-        return TInt.ReadBigEndian(_buffer.Slice(Position, Unsafe.SizeOf<TInt>()), TInt.IsZero(TInt.MinValue));
+        return TInt.ReadBigEndian(Peek(Unsafe.SizeOf<TInt>()), TInt.IsZero(TInt.MinValue));
     }
 
     public TInt Read<TInt>() where TInt : unmanaged, IBinaryInteger<TInt>, IMinMaxValue<TInt>
@@ -32,29 +45,14 @@ internal ref struct DnsReader(ReadOnlySpan<byte> buffer)
 
     public ReadOnlySpan<byte> Read(int length)
     {
-        var newPosition = Position + length;
-        if (newPosition > _buffer.Length)
-            throw new ArgumentOutOfRangeException(nameof(length));
-
-        var result = _buffer[Position..newPosition];
-        Position = newPosition;
+        var result = Peek(length);
+        Position += length;
         return result;
     }
 
-    public ReadOnlySpan<byte> ReadToEnd()
-    {
-        var result = _buffer[Position..];
-        Position = _buffer.Length;
-        return result;
-    }
+    public ReadOnlySpan<byte> ReadToEnd() => Read(_slicedBuffer.Length - Position);
 
-    internal readonly bool GetNameByOffset(int offset, [MaybeNullWhen(false)] out DnsName name)
-    {
-        if (_offsets is not null && _offsets.TryGetValue(offset, out name))
-            return true;
-        name = null;
-        return false;
-    }
+    internal readonly bool GetNameByOffset(int offset, [MaybeNullWhen(false)] out DnsName name) => _offsets.TryGetValue(offset, out name);
 
-    internal void AddNameOffset(DnsName name, int offset) => (_offsets ??= new(1)).Add(offset, name);
+    internal readonly void AddNameOffset(DnsName name, int offset) => _offsets.Add(offset, name);
 }

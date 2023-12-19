@@ -1,6 +1,6 @@
 ﻿namespace DnsCore.Model;
 
-public enum DnsClass
+public enum DnsClass : ushort
 {
     // The Internet
     IN = 1,

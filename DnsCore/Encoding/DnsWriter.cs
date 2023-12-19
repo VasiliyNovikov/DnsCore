@@ -8,34 +8,30 @@ namespace DnsCore.Encoding;
 
 internal ref struct DnsWriter(Span<byte> buffer)
 {
-    private Dictionary<DnsName, int>? _offsets;
+    private readonly Dictionary<DnsName, int> _offsets = new(1);
 
     public Span<byte> Buffer { get; } = buffer;
-    public ushort Position { get; private set; }
+    public int Position { get; private set; }
 
-    public void Write<TInt>(TInt value) where TInt : unmanaged, IBinaryInteger<TInt> => Position += (ushort)value.WriteBigEndian(Buffer[Position..]);
+    public void Write<TInt>(TInt value) where TInt : unmanaged, IBinaryInteger<TInt> => Position += value.WriteBigEndian(Buffer[Position..]);
 
     public void Write(ReadOnlySpan<byte> value)
     {
         value.CopyTo(Buffer[Position..]);
-        Position += (ushort)value.Length;
+        Position += value.Length;
     }
 
-    public DnsWriter Advance(int length)
+    public Span<byte> Advance(int length)
     {
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(length, Buffer.Length - Position);
         var oldPosition = Position;
-        Position = (ushort)(oldPosition + length);
-        return new DnsWriter(Buffer[oldPosition..Position]);
+        var newPosition = oldPosition + length;
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(newPosition, Buffer.Length, nameof(length));
+
+        Position = newPosition;
+        return Buffer[oldPosition..newPosition];
     }
 
-    internal bool GetNameOffset(DnsName name, out int offset)
-    {
-        if (_offsets is not null && _offsets.TryGetValue(name, out offset))
-            return true;
-        offset = 0;
-        return false;
-    }
+    internal readonly bool GetNameOffset(DnsName name, out int offset) => _offsets.TryGetValue(name, out offset);
 
-    internal void AddNameOffset(DnsName name, int offset) => (_offsets ??= new Dictionary<DnsName, int>()).Add(name, offset);
+    internal readonly void AddNameOffset(DnsName name, int offset) => _offsets.Add(name, offset);
 }
