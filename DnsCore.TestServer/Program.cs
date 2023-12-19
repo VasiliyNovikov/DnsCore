@@ -31,7 +31,7 @@ var services = new ServiceCollection()
     .AddLogging(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Debug))
     .BuildServiceProvider();
 
-using var server = new DnsUdpServer(address, port, HandleRequest, services.GetRequiredService<ILogger<DnsUdpServer>>());
+await using var server = new DnsUdpServer(address, port, HandleRequest, services.GetRequiredService<ILogger<DnsUdpServer>>());
 await server.Run();
 return;
 

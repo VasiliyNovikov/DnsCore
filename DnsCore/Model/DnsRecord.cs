@@ -27,7 +27,7 @@ public abstract class DnsRecord(DnsName name, DnsRecordType recordType, DnsClass
 
     private protected abstract void EncodeData(ref DnsWriter writer);
 
-    internal static new DnsRecord Decode(ref DnsReader reader)
+    internal new static DnsRecord Decode(ref DnsReader reader)
     {
         var (name, type, @class) = DnsRecordBase.Decode(ref reader);
         var ttl = TimeSpan.FromSeconds(reader.Read<uint>());

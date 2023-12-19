@@ -86,7 +86,7 @@ public sealed class DnsName
         if (Parent is null || Parent.IsEmpty)
             return true;
 
-        if (Parent.TryFormat(destination[charsWritten..], out int parentCharsWritten, format, provider))
+        if (Parent.TryFormat(destination[charsWritten..], out var parentCharsWritten, format, provider))
         {
             charsWritten += parentCharsWritten;
             return true;
@@ -98,7 +98,7 @@ public sealed class DnsName
     public string ToString(string? format, IFormatProvider? formatProvider)
     {
         Span<char> buffer = stackalloc char[Length];
-        TryFormat(buffer, out var charsWritten, default, formatProvider);
+        TryFormat(buffer, out _, default, formatProvider);
         return new string(buffer);
     }
 
@@ -110,7 +110,7 @@ public sealed class DnsName
         {
             if (writer.GetNameOffset(this, out var offset))
             {
-                writer.Write((ushort)(offset | 0b1100_0000_0000_0000));
+                writer.Write((ushort)(offset | OffsetMask));
                 return;
             }
             writer.AddNameOffset(this, writer.Position);
@@ -122,7 +122,7 @@ public sealed class DnsName
 
     internal static DnsName Decode(ref DnsReader reader)
     {
-        if (reader.Peek<byte>() > CompressionMask)
+        if (reader.Peek<byte>() >= CompressionMask)
         {
             var offset = reader.Read<ushort>() & OffsetMaskInverted;
             if (!reader.GetNameByOffset(offset, out var name))
@@ -152,9 +152,7 @@ public sealed class DnsName
         return other is not null &&
                Length == other.Length &&
                Label == other.Label &&
-               (Parent is null
-                   ? other.Parent is null
-                   : Parent.Equals(other.Parent));
+               (Parent?.Equals(other.Parent) ?? other.Parent is null);
     }
 
     public override bool Equals(object? obj) => obj is DnsName name && Equals(name);

@@ -5,24 +5,14 @@ using DnsCore.Encoding;
 
 namespace DnsCore.Model.Internal;
 
-internal sealed class DnsRawMessage
+internal sealed class DnsRawMessage(ushort id, DnsFlags flags, IReadOnlyList<DnsQuestion> questions, IReadOnlyList<DnsRecord> answers, IReadOnlyList<DnsRecord> authorities, IReadOnlyList<DnsRecord> additional)
 {
-    public ushort Id { get; }
-    public DnsFlags Flags { get; }
-    public DnsQuestion[] Questions { get; }
-    public DnsRecord[] Answers { get; }
-    public DnsRecord[] Authorities { get; }
-    public DnsRecord[] Additional { get; }
-
-    public DnsRawMessage(ushort id, DnsFlags flags, IReadOnlyList<DnsQuestion> questions, IReadOnlyList<DnsRecord> answers, IReadOnlyList<DnsRecord> authorities, IReadOnlyList<DnsRecord> additional)
-    {
-        Id = id;
-        Flags = flags;
-        Questions = [.. questions];
-        Answers = [.. answers];
-        Authorities = [.. authorities];
-        Additional = [.. additional];
-    }
+    public ushort Id { get; } = id;
+    public DnsFlags Flags { get; } = flags;
+    public DnsQuestion[] Questions { get; } = [.. questions];
+    public DnsRecord[] Answers { get; } = [.. answers];
+    public DnsRecord[] Authorities { get; } = [.. authorities];
+    public DnsRecord[] Additional { get; } = [.. additional];
 
     public int Encode(Span<byte> buffer)
     {
@@ -70,7 +60,7 @@ internal sealed class DnsRawMessage
             foreach (var additional in Additional)
                 additional.Encode(ref writer);
         }
-        catch (ArgumentOutOfRangeException e)
+        catch (ArgumentException e)
         {
             throw new FormatException($"Buffer is too short: {e.Message}", e);
         }

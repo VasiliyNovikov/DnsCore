@@ -29,6 +29,13 @@ public sealed class DnsRequest : DnsMessage
 
     public DnsResponse Reply() => new(this);
 
+    public DnsResponse Reply(DnsResponseStatus status)
+    {
+        var response = Reply();
+        response.Status = status;
+        return response;
+    }
+
     public DnsResponse Reply(DnsRecord answer)
     {
         var response = Reply();

@@ -18,7 +18,6 @@ internal ref struct DnsReader
 
     private DnsReader(ReadOnlySpan<byte> originalBuffer, int position, int length)
     {
-        var actualLength = position + length;
         _originalBuffer = originalBuffer;
         _slicedBuffer = originalBuffer[..(position + length)];
         Position = position;
