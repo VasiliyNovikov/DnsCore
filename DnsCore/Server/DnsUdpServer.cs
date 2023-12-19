@@ -19,6 +19,8 @@ public sealed partial class DnsUdpServer : IDisposable, IAsyncDisposable
     private readonly EndPoint _endPoint;
     private readonly Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> _handler;
     private readonly ILogger? _logger;
+    private bool _started;
+    private bool _disposed;
     private Task? _runTask;
     private CancellationTokenSource? _runCancellation;
 
@@ -44,7 +46,8 @@ public sealed partial class DnsUdpServer : IDisposable, IAsyncDisposable
 
     public void Start()
     {
-        if (_runTask is not null)
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_started)
             throw new InvalidOperationException("Server is already running");
 
         _runCancellation = new CancellationTokenSource();
@@ -53,6 +56,9 @@ public sealed partial class DnsUdpServer : IDisposable, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        if (_disposed)
+            return;
+        _disposed = true;
         if (_runCancellation is not null)
             await _runCancellation.CancelAsync().ConfigureAwait(false);
         if (_runTask is not null)
@@ -70,6 +76,10 @@ public sealed partial class DnsUdpServer : IDisposable, IAsyncDisposable
 
     public async Task Run(CancellationToken cancellationToken = default)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_started)
+            throw new InvalidOperationException("Server is already running");
+        _started = true;
         try
         {
             using var socket = new Socket(_endPoint.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
@@ -117,48 +127,53 @@ public sealed partial class DnsUdpServer : IDisposable, IAsyncDisposable
         }
     }
 
-    private async Task ReceiveRequests(Channel<Task> tasks, Socket socket, CancellationToken cancellationToken = default)
+    private async Task ReceiveRequests(ChannelWriter<Task> tasks, Socket socket, CancellationToken cancellationToken)
     {
-        var clientEndPoint = new IPEndPoint(socket.AddressFamily == AddressFamily.InterNetwork ? IPAddress.Any : IPAddress.IPv6Any, 0);
-        var buffer = new byte[MaxMessageSize];
         try
         {
-            while (true)
-            {
-                SocketReceiveFromResult rawRequest;
-                try
-                {
-                    rawRequest = await socket.ReceiveFromAsync(buffer, SocketFlags.None, clientEndPoint, cancellationToken).ConfigureAwait(false);
-                }
-                catch (SocketException e)
-                {
-                    if (_logger is not null)
-                        LogErrorReceivingDnsRequest(_logger, e);
-                    continue;
-                }
-
-                DnsRequest request;
-                try
-                {
-                    request = DnsRequest.Decode(buffer.AsSpan(0, rawRequest.ReceivedBytes));
-                }
-                catch (FormatException e)
-                {
-                    if (_logger != null)
-                        LogErrorDecodingDnsRequest(_logger, e, rawRequest.RemoteEndPoint);
-                    continue;
-                }
-#pragma warning disable CA2016 // On purpose
-                await tasks.Writer.WriteAsync(HandleRequest(socket, rawRequest.RemoteEndPoint, request, cancellationToken));
-#pragma warning restore CA2016
-            }
+            await ReceiveRequestsCore(tasks, socket, cancellationToken);
         }
         catch (OperationCanceledException)
         {
         }
         finally
         {
-            tasks.Writer.Complete();
+            tasks.Complete();
+        }
+    }
+
+    private async Task ReceiveRequestsCore(ChannelWriter<Task> tasks, Socket socket, CancellationToken cancellationToken)
+    {
+        var clientEndPoint = new IPEndPoint(socket.AddressFamily == AddressFamily.InterNetwork ? IPAddress.Any : IPAddress.IPv6Any, 0);
+        var buffer = new byte[MaxMessageSize];
+        while (true)
+        {
+            SocketReceiveFromResult rawRequest;
+            try
+            {
+                rawRequest = await socket.ReceiveFromAsync(buffer, SocketFlags.None, clientEndPoint, cancellationToken).ConfigureAwait(false);
+            }
+            catch (SocketException e)
+            {
+                if (_logger is not null)
+                    LogErrorReceivingDnsRequest(_logger, e);
+                continue;
+            }
+
+            DnsRequest request;
+            try
+            {
+                request = DnsRequest.Decode(buffer.AsSpan(0, rawRequest.ReceivedBytes));
+            }
+            catch (FormatException e)
+            {
+                if (_logger != null)
+                    LogErrorDecodingDnsRequest(_logger, e, rawRequest.RemoteEndPoint);
+                continue;
+            }
+#pragma warning disable CA2016 // On purpose
+            await tasks.WriteAsync(HandleRequest(socket, rawRequest.RemoteEndPoint, request, cancellationToken));
+#pragma warning restore CA2016
         }
     }
 
