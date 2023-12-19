@@ -133,9 +133,6 @@ public sealed partial class DnsUdpServer : IDisposable, IAsyncDisposable
         {
             await ReceiveRequestsCore(tasks, socket, cancellationToken);
         }
-        catch (OperationCanceledException)
-        {
-        }
         finally
         {
             tasks.Complete();
@@ -191,9 +188,6 @@ public sealed partial class DnsUdpServer : IDisposable, IAsyncDisposable
         {
             if (_logger is not null)
                 LogErrorSendingDnsResponse(_logger, e, clientEndPoint, response);
-        }
-        catch (OperationCanceledException)
-        {
         }
         finally
         {
