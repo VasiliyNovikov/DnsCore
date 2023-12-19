@@ -154,7 +154,7 @@ public sealed class DnsName
                Label == other.Label &&
                (Parent is null
                    ? other.Parent is null
-                   : other.Parent is not null && Parent.Equals(other.Parent));
+                   : Parent.Equals(other.Parent));
     }
 
     public override bool Equals(object? obj) => obj is DnsName name && Equals(name);
