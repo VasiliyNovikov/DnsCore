@@ -38,6 +38,7 @@ public class DnsServerTests
         DnsQuestion? actualQuestion = null;
 
         await using var server = new DnsUdpServer(ServerAddress, Port, ProcessRequest, Logger);
+        server.Start();
 
         var actualAnswers = await Resolve(question.Name.ToString(), question.RecordType);
 

@@ -32,8 +32,7 @@ var services = new ServiceCollection()
     .BuildServiceProvider();
 
 using var server = new DnsUdpServer(address, port, HandleRequest, services.GetRequiredService<ILogger<DnsUdpServer>>());
-
-Console.ReadKey();
+await server.Run();
 return;
 
 async ValueTask<DnsResponse> HandleRequest(DnsRequest request, CancellationToken cancellationToken)
