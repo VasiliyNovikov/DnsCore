@@ -17,7 +17,7 @@ public abstract class DnsRecordBase(DnsName name, DnsRecordType recordType, DnsC
         writer.Write((ushort)@class);
     }
 
-    internal static (DnsName Name, DnsRecordType RecordType, DnsClass Class) Decode(ref DnsReader reader)
+    private protected static (DnsName Name, DnsRecordType RecordType, DnsClass Class) Decode(ref DnsReader reader)
     {
         var name = DnsName.Decode(ref reader);
         var type = (DnsRecordType)reader.Read<ushort>();
