@@ -64,7 +64,7 @@ internal ref struct DnsReader
 
     public ReadOnlySpan<byte> ReadToEnd()
     {
-        var result = _buffer[Position..(Position + _length)];
+        var result = _buffer[Position.._length];
         Position = _length;
         return result;
     }
