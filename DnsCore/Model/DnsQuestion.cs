@@ -10,7 +10,7 @@ public sealed class DnsQuestion(DnsName name, DnsRecordType recordType, DnsClass
     , IEquatable<DnsQuestion>
     , IEqualityOperators<DnsQuestion, DnsQuestion, bool>
 {
-    internal static new DnsQuestion Decode(ref DnsReader reader)
+    internal new static DnsQuestion Decode(ref DnsReader reader)
     {
         var (name, type, @class) = DnsRecordBase.Decode(ref reader);
         return new DnsQuestion(name, type, @class);
