@@ -62,12 +62,7 @@ internal ref struct DnsReader
         return result;
     }
 
-    public ReadOnlySpan<byte> ReadToEnd()
-    {
-        var result = _buffer[Position.._length];
-        Position = _length;
-        return result;
-    }
+    public ReadOnlySpan<byte> ReadToEnd() => Read(_length - Position);
 
     internal readonly bool GetNameByOffset(int offset, [MaybeNullWhen(false)] out DnsName name) => _offsets.TryGetValue(offset, out name);
 
