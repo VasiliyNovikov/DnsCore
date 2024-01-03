@@ -1,18 +1,17 @@
 ﻿using System;
-using System.Collections.Generic;
 
 using DnsCore.Encoding;
 
 namespace DnsCore.Model.Internal;
 
-internal sealed class DnsRawMessage(ushort id, DnsFlags flags, IReadOnlyList<DnsQuestion> questions, IReadOnlyList<DnsRecord> answers, IReadOnlyList<DnsRecord> authorities, IReadOnlyList<DnsRecord> additional)
+internal sealed class DnsRawMessage(ushort id, DnsFlags flags, DnsQuestion[] questions, DnsRecord[] answers, DnsRecord[] authorities, DnsRecord[] additional)
 {
-    public ushort Id { get; } = id;
-    public DnsFlags Flags { get; } = flags;
-    public DnsQuestion[] Questions { get; } = [.. questions];
-    public DnsRecord[] Answers { get; } = [.. answers];
-    public DnsRecord[] Authorities { get; } = [.. authorities];
-    public DnsRecord[] Additional { get; } = [.. additional];
+    public ushort Id => id;
+    public DnsFlags Flags => flags;
+    public DnsQuestion[] Questions => questions;
+    public DnsRecord[] Answers => answers;
+    public DnsRecord[] Authorities => authorities;
+    public DnsRecord[] Additional => additional;
 
     public int Encode(Span<byte> buffer)
     {
@@ -75,21 +74,21 @@ internal sealed class DnsRawMessage(ushort id, DnsFlags flags, IReadOnlyList<Dns
         var authorityCount = reader.Read<ushort>();
         var additionalCount = reader.Read<ushort>();
 
-        var questions = new List<DnsQuestion>(questionCount);
+        var questions = new DnsQuestion[questionCount];
         for (var i = 0; i < questionCount; ++i)
-            questions.Add(DnsQuestion.Decode(ref reader));
+            questions[i] = DnsQuestion.Decode(ref reader);
 
-        var answers = new List<DnsRecord>(answerCount);
+        var answers = new DnsRecord[answerCount];
         for (var i = 0; i < answerCount; ++i)
-            answers.Add(DnsRecord.Decode(ref reader));
+            answers[i] = DnsRecord.Decode(ref reader);
 
-        var authorities = new List<DnsRecord>(authorityCount);
+        var authorities = new DnsRecord[authorityCount];
         for (var i = 0; i < authorityCount; ++i)
-            authorities.Add(DnsRecord.Decode(ref reader));
+            authorities[i] = DnsRecord.Decode(ref reader);
 
-        var additional = new List<DnsRecord>(additionalCount);
+        var additional = new DnsRecord[additionalCount];
         for (var i = 0; i < additionalCount; ++i)
-            additional.Add(DnsRecord.Decode(ref reader));
+            additional[i] = DnsRecord.Decode(ref reader);
 
         return new DnsRawMessage(id, flags, questions, answers, authorities, additional);
     }

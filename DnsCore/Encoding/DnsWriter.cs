@@ -21,7 +21,7 @@ internal ref struct DnsWriter(Span<byte> buffer)
         Position += value.Length;
     }
 
-    public Span<byte> Advance(int length)
+    public Span<byte> ProvideBufferAndAdvance(int length)
     {
         var oldPosition = Position;
         var newPosition = oldPosition + length;
