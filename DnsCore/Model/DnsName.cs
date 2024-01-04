@@ -51,9 +51,9 @@ public sealed class DnsName
         if (name.Length == 0)
             return Empty;
 
-        var lasIndex = name.Length - 1;
-        if (name[lasIndex] == Separator)
-            name = name.Subsegment(0, lasIndex);
+        var lastIndex = name.Length - 1;
+        if (name[lastIndex] == Separator)
+            name = name.Subsegment(0, lastIndex);
 
         if (name.Length == 0)
             return Empty;
@@ -127,7 +127,7 @@ public sealed class DnsName
             var offset = reader.Read<ushort>() & OffsetMaskInverted;
             if (!reader.GetNameByOffset(offset, out var name))
             {
-                var offsetReader = reader.Seek(offset);
+                var offsetReader = reader.GetSubReader(offset);
                 name = Decode(ref offsetReader);
                 reader.AddNameOffset(name, offset);
             }

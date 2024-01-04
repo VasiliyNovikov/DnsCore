@@ -52,5 +52,5 @@ public sealed class DnsRequest : DnsMessage
 
     public static DnsRequest Decode(ReadOnlySpan<byte> buffer) => new(DnsRawMessage.Decode(buffer));
 
-    private protected override DnsRawMessage ToRawMessage() => new(Id, GetRawFlags(), Questions, [], [], []);
+    private protected override DnsRawMessage ToRawMessage() => new(Id, GetRawFlags(), [.. Questions], [], [], []);
 }

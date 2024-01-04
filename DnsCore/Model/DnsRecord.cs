@@ -17,12 +17,12 @@ public abstract class DnsRecord(DnsName name, DnsRecordType recordType, DnsClass
         base.Encode(ref writer);
         writer.Write((uint)ttl.TotalSeconds);
 
-        var dataLenBuffer = writer.Advance(2);
+        var dataLenBuffer = writer.ProvideBufferAndAdvance(2);
 
-        var dataLenPosition = writer.Position;
+        var dataPosition = writer.Position;
         EncodeData(ref writer);
 
-        BinaryPrimitives.WriteUInt16BigEndian(dataLenBuffer, (ushort)(writer.Position - dataLenPosition));
+        BinaryPrimitives.WriteUInt16BigEndian(dataLenBuffer, (ushort)(writer.Position - dataPosition));
     }
 
     private protected abstract void EncodeData(ref DnsWriter writer);
@@ -32,8 +32,8 @@ public abstract class DnsRecord(DnsName name, DnsRecordType recordType, DnsClass
         var (name, type, @class) = DnsRecordBase.Decode(ref reader);
         var ttl = TimeSpan.FromSeconds(reader.Read<uint>());
         var dataLength = reader.Read<ushort>();
-        var dataReader = reader.Seek(reader.Position, dataLength);
-        reader.Read(dataLength);
+        var dataReader = reader.GetSubReader(reader.Position, dataLength);
+        reader.Skip(dataLength);
 
         switch (type)
         {

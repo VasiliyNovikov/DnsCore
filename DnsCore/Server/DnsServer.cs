@@ -1,6 +1,5 @@
 ﻿using DnsCore.Model;
 using System.Buffers;
-using System.Net.Sockets;
 using System.Net;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -15,11 +14,10 @@ namespace DnsCore.Server;
 
 public sealed partial class DnsServer : IDisposable, IAsyncDisposable
 {
-    private const int MaxMessageSize = 512;
     private const ushort DefaultPort = 53;
 
     private readonly EndPoint _endPoint;
-    private readonly DnsTransportType _transport;
+    private readonly DnsTransportType _transportType;
     private readonly Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> _handler;
     private readonly ILogger? _logger;
     private bool _started;
@@ -27,24 +25,24 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
     private Task? _runTask;
     private CancellationTokenSource? _runCancellation;
 
-    public DnsServer(EndPoint endPoint, DnsTransportType transport, Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, ILogger? logger = null)
+    public DnsServer(EndPoint endPoint, DnsTransportType transportType, Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, ILogger? logger = null)
     {
         ArgumentNullException.ThrowIfNull(endPoint);
         ArgumentNullException.ThrowIfNull(handler);
 
         _endPoint = endPoint;
-        _transport = transport;
+        _transportType = transportType;
         _handler = handler;
         _logger = logger;
     }
 
-    public DnsServer(IPAddress address, ushort port, DnsTransportType transport, Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, ILogger? logger = null)
-        : this(new IPEndPoint(address, port), transport, handler, logger)
+    public DnsServer(IPAddress address, ushort port, DnsTransportType transportType, Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, ILogger? logger = null)
+        : this(new IPEndPoint(address, port), transportType, handler, logger)
     {
     }
 
-    public DnsServer(IPAddress address, DnsTransportType transport, Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, ILogger? logger = null)
-        : this(new IPEndPoint(address, DefaultPort), transport, handler, logger)
+    public DnsServer(IPAddress address, DnsTransportType transportType, Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, ILogger? logger = null)
+        : this(new IPEndPoint(address, DefaultPort), transportType, handler, logger)
     {
     }
 
@@ -86,7 +84,7 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         _started = true;
         try
         {
-            using var transport = DnsTransport.Create(_endPoint, _transport);
+            using var transport = DnsTransport.Create(_endPoint, _transportType);
             if (_logger is not null)
                 LogStartedDnsServer(_logger, _endPoint);
             var tasks = Channel.CreateUnbounded<Task>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
@@ -112,21 +110,28 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         }
     }
 
-    private static async Task WaitForTasksToCompleteOrFail(ChannelReader<Task> tasks)
+    private static async Task WaitForTasksToCompleteOrFail(ChannelReader<Task> tasksReader)
     {
-        List<Task> pendingTasks = [];
-        while (await tasks.WaitToReadAsync())
+        var waitForMoreTasks = tasksReader.WaitToReadAsync().AsTask();
+        List<Task> pendingTasks = [waitForMoreTasks];
+        while (pendingTasks.Count > 0)
         {
-            while (tasks.TryRead(out var task))
-                pendingTasks.Add(task);
+            var task = await Task.WhenAny(pendingTasks);
+            if (task.IsFaulted)
+                await task; // We want to throw the exception
 
-            while (pendingTasks.Count > 0)
-            {
-                var task = await Task.WhenAny(pendingTasks);
-                if (task.IsFaulted)
-                    await task;
-                pendingTasks.Remove(task);
-            }
+            pendingTasks.Remove(task);
+            if (task != waitForMoreTasks)
+                continue;
+
+            if (!await waitForMoreTasks)
+                continue;
+
+            while (tasksReader.TryRead(out var newTask))
+                pendingTasks.Add(newTask);
+
+            waitForMoreTasks = tasksReader.WaitToReadAsync().AsTask();
+            pendingTasks.Add(waitForMoreTasks);
         }
     }
 
@@ -140,7 +145,7 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
                 {
                     var connection = await transport.Accept(cancellationToken).ConfigureAwait(false);
     #pragma warning disable CA2016 // On purpose
-                    await tasks.WriteAsync(ProcessRequests(connection, cancellationToken));
+                    await tasks.WriteAsync(ProcessRequests(transport, connection, cancellationToken));
     #pragma warning restore CA2016
                 }
                 catch (DnsTransportException e)
@@ -156,7 +161,7 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         }
     }
 
-    private async Task ProcessRequests(DnsTransportConnection connection, CancellationToken cancellationToken)
+    private async Task ProcessRequests(DnsTransport transport, DnsTransportConnection connection, CancellationToken cancellationToken)
     {
         using (connection)
         {
@@ -189,22 +194,22 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
                         LogErrorDecodingDnsRequest(_logger, e, connection.RemoteEndPoint);
                     continue;
                 }
-                await HandleRequest(connection, request, cancellationToken);
+                await HandleRequest(transport, connection, request, cancellationToken);
             }
         }
     }
 
-    private async Task HandleRequest(DnsTransportConnection connection, DnsRequest request, CancellationToken cancellationToken)
+    private async Task HandleRequest(DnsTransport transport, DnsTransportConnection connection, DnsRequest request, CancellationToken cancellationToken)
     {
         await Task.Yield();
         var response = await InvokeRequestHandler(connection, request, cancellationToken).ConfigureAwait(false);
-        var buffer = ArrayPool<byte>.Shared.Rent(MaxMessageSize);
+        var buffer = ArrayPool<byte>.Shared.Rent(transport.MaxMessageSize);
         try
         {
             var length = EncodeResponse(connection, request, response, buffer);
             await connection.Send(buffer.AsMemory(0, length), cancellationToken).ConfigureAwait(false);
         }
-        catch (SocketException e)
+        catch (DnsTransportException e)
         {
             if (_logger is not null)
                 LogErrorSendingDnsResponse(_logger, e, connection.RemoteEndPoint, response);

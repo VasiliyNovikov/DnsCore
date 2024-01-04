@@ -85,7 +85,7 @@ public sealed class DnsResponse : DnsMessage
 
     public static DnsResponse Decode(ReadOnlySpan<byte> buffer) => new(DnsRawMessage.Decode(buffer));
 
-    private protected override DnsRawMessage ToRawMessage() => new(Id, GetRawFlags(), Questions, Answers, Authorities, Additional);
+    private protected override DnsRawMessage ToRawMessage() => new(Id, GetRawFlags(), [.. Questions], [.. Answers], [.. Authorities], [.. Additional]);
 
     private protected override DnsFlags GetRawFlags()
     {

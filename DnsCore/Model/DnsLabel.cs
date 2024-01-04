@@ -34,7 +34,7 @@ public readonly struct DnsLabel
         {
             var span = label.AsSpan();
             if (!IsLetterOrDigit(span[0]))
-                throw new ArgumentException("First character of the label must be an ASCII letter", nameof(label));
+                throw new ArgumentException("First character of the label must be an ASCII letter or digit", nameof(label));
 
             if (label.Length > 1)
             {
@@ -94,11 +94,11 @@ public readonly struct DnsLabel
 
     public override string ToString() => ToString(default, default);
 
-    internal readonly void Encode(ref DnsWriter writer)
+    internal void Encode(ref DnsWriter writer)
     {
         writer.Write((byte)Length);
         if (!IsEmpty)
-            Encoding.GetBytes(_label.AsSpan(), writer.Advance(Length));
+            Encoding.GetBytes(_label.AsSpan(), writer.ProvideBufferAndAdvance(Length));
     }
 
     internal static DnsLabel Decode(ref DnsReader reader)

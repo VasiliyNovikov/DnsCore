@@ -25,14 +25,14 @@ internal ref struct DnsReader
 
     public DnsReader(ReadOnlySpan<byte> buffer) : this(buffer, 0, buffer.Length) { }
 
-    public readonly DnsReader Seek(int position) => new(_originalBuffer, position, _originalBuffer.Length - position);
-    public readonly DnsReader Seek(int position, int length) => new(_originalBuffer, position, length);
+    public readonly DnsReader GetSubReader(int position) => new(_originalBuffer, position, _originalBuffer.Length - position);
+    public readonly DnsReader GetSubReader(int position, int length) => new(_originalBuffer, position, length);
 
     private readonly ReadOnlySpan<byte> Peek(int length) => _slicedBuffer.Slice(Position, length);
 
     public readonly TInt Peek<TInt>() where TInt : unmanaged, IBinaryInteger<TInt>, IMinMaxValue<TInt>
     {
-        return TInt.ReadBigEndian(Peek(Unsafe.SizeOf<TInt>()), TInt.IsZero(TInt.MinValue));
+        return TInt.ReadBigEndian(Peek(Unsafe.SizeOf<TInt>()), isUnsigned: TInt.IsZero(TInt.MinValue));
     }
 
     public TInt Read<TInt>() where TInt : unmanaged, IBinaryInteger<TInt>, IMinMaxValue<TInt>
@@ -48,6 +48,8 @@ internal ref struct DnsReader
         Position += length;
         return result;
     }
+    
+    public void Skip(int length) => Read(length);
 
     public ReadOnlySpan<byte> ReadToEnd() => Read(_slicedBuffer.Length - Position);
 

@@ -12,7 +12,7 @@ public sealed class DnsAddressRecord(DnsName name, IPAddress data, TimeSpan ttl)
     private protected override void EncodeData(ref DnsWriter writer)
     {
         var length = Data.AddressFamily == AddressFamily.InterNetwork ? 4 : 16;
-        Data.TryWriteBytes(writer.Advance(length), out _);
+        Data.TryWriteBytes(writer.ProvideBufferAndAdvance(length), out _);
     }
 
     internal static IPAddress DecodeData(ref DnsReader reader) => new(reader.ReadToEnd());
