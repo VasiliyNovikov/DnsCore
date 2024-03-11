@@ -9,6 +9,18 @@ namespace DnsCore.Common;
 
 internal static class DnsSocketExtensions
 {
+    public static async ValueTask SendUdpMessage(this Socket socket, DnsTransportMessage message, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await socket.SendAsync(message.Buffer, SocketFlags.None, cancellationToken).ConfigureAwait(false);
+        }
+        catch (SocketException e)
+        {
+            throw new DnsSocketException(e.Message, e);
+        }
+    }
+
     public static async ValueTask SendUdpMessageTo(this Socket socket, DnsTransportMessage message, EndPoint remoteEndPoint, CancellationToken cancellationToken)
     {
         try
@@ -17,6 +29,21 @@ internal static class DnsSocketExtensions
         }
         catch (SocketException e)
         {
+            throw new DnsSocketException(e.Message, e);
+        }
+    }
+
+    public static async ValueTask<DnsTransportMessage> ReceiveUdpMessage(this Socket socket, CancellationToken cancellationToken)
+    {
+        var buffer = DnsBufferPool.Rent(DnsDefaults.MaxUdpMessageSize);
+        try
+        {
+            var receivedBytes = await socket.ReceiveAsync(buffer, SocketFlags.None, cancellationToken);
+            return new DnsTransportMessage(buffer, receivedBytes);
+        }
+        catch (SocketException e)
+        {
+            DnsBufferPool.Return(buffer);
             throw new DnsSocketException(e.Message, e);
         }
     }
