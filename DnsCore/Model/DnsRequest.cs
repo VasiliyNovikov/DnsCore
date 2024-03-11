@@ -14,10 +14,11 @@ public sealed class DnsRequest : DnsMessage
     public DnsRequest(ushort id, IEnumerable<DnsQuestion>? questions = null)
         : base(id, questions)
     {
+        RecursionDesired = true;
     }
 
     public DnsRequest(IEnumerable<DnsQuestion>? questions = null)
-        : base(DnsRequestIdGenerator.NextId(), questions)
+        : this(DnsRequestIdGenerator.NewId(), questions)
     {
     }
 

@@ -1,13 +1,21 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <Import Project="../DnsCore.targets" />
-  <PropertyGroup>
-    <TestTfmsInParallel>false</TestTfmsInParallel>
-  </PropertyGroup>
-  <ItemGroup>
+    <ItemGroup>
+    <PackageReference Include="CSnakes.Runtime" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" />
     <PackageReference Include="MSTest" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\DnsCore\DnsCore.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <AdditionalFiles Include="*.py" SourceItemType="Python">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </AdditionalFiles>
+    <AdditionalFiles Include="requirements.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </AdditionalFiles>
   </ItemGroup>
 </Project>

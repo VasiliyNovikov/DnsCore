@@ -12,7 +12,8 @@
     <File Path="LICENSE" />
     <File Path="README.md" />
   </Folder>
+  <Project Path="DnsCore/DnsCore.csproj" />
   <Project Path="DnsCore.Tests/DnsCore.Tests.csproj" />
   <Project Path="DnsCore.TestServer/DnsCore.TestServer.csproj" />
-  <Project Path="DnsCore/DnsCore.csproj" />
+  <Project Path="DnsCore.TestClient/DnsCore.TestClient.csproj" />
 </Solution>

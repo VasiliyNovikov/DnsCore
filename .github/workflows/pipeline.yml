@@ -30,7 +30,7 @@ jobs:
         run: dotnet build -c Release
 
       - name: Test
-        run: dotnet test -c Release --no-build --logger trx --results-directory "TestResults-${{ matrix.os }}"
+        run: dotnet test -c Release --no-build -m:1 --logger trx --results-directory "TestResults-${{ matrix.os }}"
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
