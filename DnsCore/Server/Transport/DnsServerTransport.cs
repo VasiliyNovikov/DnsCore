@@ -7,7 +7,8 @@ namespace DnsCore.Server.Transport;
 
 public abstract class DnsServerTransport : IDisposable
 {
-    public abstract int MaxMessageSize { get; }
+    public abstract ushort DefaultMessageSize { get; }
+    public abstract ushort MaxMessageSize { get; }
 
     public abstract void Dispose();
     public abstract ValueTask<DnsServerTransportConnection> Accept(CancellationToken cancellationToken);

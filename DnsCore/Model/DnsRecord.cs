@@ -10,7 +10,11 @@ public abstract class DnsRecord(DnsName name, DnsRecordType recordType, DnsClass
 {
     public TimeSpan Ttl => ttl;
 
-    public override string ToString() => $"{base.ToString()} {(uint)ttl.TotalSeconds,-5}";
+    public string Data => DataToString();
+
+    private protected abstract string DataToString();
+
+    public override string ToString() => $"{base.ToString()} {(uint)ttl.TotalSeconds,5} {Data}";
 
     internal override void Encode(ref DnsWriter writer)
     {
@@ -64,5 +68,6 @@ public abstract class DnsRecord(DnsName name, DnsRecordType recordType, DnsClass
 public abstract class DnsRecord<T>(DnsName name, T data, DnsRecordType recordType, DnsClass @class, TimeSpan ttl)
     : DnsRecord(name, recordType, @class, ttl) where T : notnull
 {
-    public T Data => data;
+    public new T Data => data;
+    private protected override string DataToString() => data.ToString()!;
 }

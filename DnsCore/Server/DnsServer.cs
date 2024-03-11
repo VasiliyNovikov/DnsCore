@@ -1,14 +1,15 @@
-﻿using DnsCore.Model;
-using System.Buffers;
+﻿using System;
+using System.Collections.Generic;
 using System.Net;
+using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
-using System.Threading;
-using System;
-using Microsoft.Extensions.Logging;
-using System.Collections.Generic;
 
+using DnsCore.Internal;
+using DnsCore.Model;
 using DnsCore.Server.Transport;
+
+using Microsoft.Extensions.Logging;
 
 namespace DnsCore.Server;
 
@@ -201,11 +202,41 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
     {
         await Task.Yield();
         var response = await InvokeRequestHandler(connection, request, cancellationToken).ConfigureAwait(false);
-        var buffer = ArrayPool<byte>.Shared.Rent(serverTransport.MaxMessageSize);
+        var bufferSize = serverTransport.DefaultMessageSize;
+        var buffer = DnsBufferPool.Rent(bufferSize);
         try
         {
-            var length = EncodeResponse(connection, request, response, buffer);
-            await connection.Send(buffer.AsMemory(0, length), cancellationToken).ConfigureAwait(false);
+            while (true)
+            {
+                try
+                {
+                    var length = response.Encode(buffer);
+                    await connection.Send(buffer.AsMemory(0, length), cancellationToken).ConfigureAwait(false);
+                    return;
+                }
+                catch (FormatException) // Insufficient buffer size
+                {
+                    var newBufferSize = (ushort)Math.Min(bufferSize * 2, serverTransport.MaxMessageSize);
+                    if (newBufferSize == bufferSize) // Max size reached
+                    {
+                        if (!response.Truncated)
+                        {
+                            if (_logger is not null)
+                                LogErrorDnsResponseTruncated(_logger, connection.RemoteEndPoint, response);
+
+                            response = request.Reply();
+                            response.Truncated = true;
+                        }
+                        else
+                            response.Questions.Clear();
+                    }
+                    else
+                    {
+                        bufferSize = newBufferSize;
+                        DnsBufferPool.Resize(ref buffer, bufferSize);
+                    }
+                }
+            }
         }
         catch (DnsServerTransportException e)
         {
@@ -214,7 +245,7 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         }
         finally
         {
-            ArrayPool<byte>.Shared.Return(buffer);
+            DnsBufferPool.Return(buffer);
         }
     }
 
@@ -239,23 +270,6 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         return response;
     }
 
-    private int EncodeResponse(DnsServerTransportConnection connection, DnsRequest request, DnsResponse response, Span<byte> buffer)
-    {
-        try
-        {
-            return response.Encode(buffer);
-        }
-        catch (FormatException e)
-        {
-            if (_logger is not null)
-                LogErrorDnsResponseTruncated(_logger, e, connection.RemoteEndPoint, response);
-
-            response = request.Reply();
-            response.Truncated = true;
-            return response.Encode(buffer);
-        }
-    }
-
     #region Logging
 
     [LoggerMessage(LogLevel.Debug, "Started DNS server on {EndPoint}")]
@@ -274,7 +288,7 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
     private static partial void LogErrorDecodingDnsRequest(ILogger logger, Exception e, EndPoint remoteEndPoint);
 
     [LoggerMessage(LogLevel.Error, "Truncated DNS response to {RemoteEndPoint}:\n{Response}")]
-    private static partial void LogErrorDnsResponseTruncated(ILogger logger, Exception e, EndPoint remoteEndPoint, DnsResponse response);
+    private static partial void LogErrorDnsResponseTruncated(ILogger logger, EndPoint remoteEndPoint, DnsResponse response);
 
     [LoggerMessage(LogLevel.Critical, "Error running DNS server on {EndPoint}")]
     private static partial void LogErrorRunningDnsServer(ILogger logger, Exception e, EndPoint endPoint);
