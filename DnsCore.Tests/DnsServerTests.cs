@@ -20,7 +20,7 @@ namespace DnsCore.Tests;
 public class DnsServerTests
 {
     private static readonly IPAddress ServerAddress = IPAddress.Loopback;
-    private static readonly ushort Port = (ushort)(OperatingSystem.IsWindows() ? 53 : 5553);
+    private static readonly ushort Port = (ushort)(OperatingSystem.IsWindows() ? DnsDefaults.Port : 5553);
     private static readonly ILogger Logger;
 
     static DnsServerTests()
@@ -120,7 +120,7 @@ public class DnsServerTests
 
         List<DnsMessage> messages = [.. requests, .. responses];
         
-        Span<byte> buffer = stackalloc byte[512]; 
+        Span<byte> buffer = stackalloc byte[DnsDefaults.MaxUdpMessageSize]; 
         foreach (var message in messages)
         {
             var length = message.Encode(buffer);
@@ -185,10 +185,10 @@ public class DnsServerTests
     [TestMethod]
     public void Test_Decode_Malformed()
     {
-        Memory<byte> buffer = new byte[512];
+        Memory<byte> buffer = new byte[DnsDefaults.MaxUdpMessageSize];
         for (var i = 0; i < 1000; ++i)
         {
-            var messageMem = buffer[..Random.Shared.Next(0, 512)];
+            var messageMem = buffer[..Random.Shared.Next(0, DnsDefaults.MaxUdpMessageSize)];
             Random.Shared.NextBytes(messageMem.Span);
             Assert.ThrowsException<FormatException>(() => DnsRequest.Decode(messageMem.Span));
             Assert.ThrowsException<FormatException>(() => DnsResponse.Decode(messageMem.Span));

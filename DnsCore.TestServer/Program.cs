@@ -5,6 +5,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 
+using DnsCore;
 using DnsCore.Model;
 using DnsCore.Server;
 
@@ -12,7 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 var address = IPAddress.Parse(args[0]);
-var port = args.Length < 2 ? (ushort)53 : ushort.Parse(args[1], CultureInfo.InvariantCulture);
+var port = args.Length < 2 ? DnsDefaults.Port : ushort.Parse(args[1], CultureInfo.InvariantCulture);
 
 var records = new DnsRecord[]
 {
