@@ -5,14 +5,14 @@ using System.Threading.Tasks;
 
 namespace DnsCore.Server.Transport;
 
-public sealed class DnsUdpTransport : DnsTransport
+public sealed class DnsUdpServerTransport : DnsServerTransport
 {
-    public override int MaxMessageSize => 512;
+    public override int MaxMessageSize => DnsDefaults.MaxUdpMessageSize;
 
     private readonly IPEndPoint _remoteEndPointPlaceholder;
     private readonly Socket _socket;
 
-    public DnsUdpTransport(EndPoint endPoint)
+    public DnsUdpServerTransport(EndPoint endPoint)
     {
         _remoteEndPointPlaceholder = new IPEndPoint(endPoint.AddressFamily == AddressFamily.InterNetwork ? IPAddress.Any : IPAddress.IPv6Any, 0);
         _socket = new Socket(endPoint.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
@@ -21,17 +21,17 @@ public sealed class DnsUdpTransport : DnsTransport
 
     public override void Dispose() => _socket.Dispose();
 
-    public override async ValueTask<DnsTransportConnection> Accept(CancellationToken cancellationToken)
+    public override async ValueTask<DnsServerTransportConnection> Accept(CancellationToken cancellationToken)
     {
-        var buffer = DnsTransportRequest.AllocateBuffer(MaxMessageSize);
+        var buffer = DnsServerTransportRequest.AllocateBuffer(MaxMessageSize);
         try
         {
             var result = await _socket.ReceiveFromAsync(buffer, SocketFlags.None, _remoteEndPointPlaceholder, cancellationToken).ConfigureAwait(false);
-            return new DnsUdpTransportConnection(_socket, result.RemoteEndPoint, new DnsTransportRequest(buffer, result.ReceivedBytes));
+            return new DnsUdpServerTransportConnection(_socket, result.RemoteEndPoint, new DnsServerTransportRequest(buffer, result.ReceivedBytes));
         }
         catch (SocketException e)
         {
-            throw new DnsTransportException("Failed to receive request", e);
+            throw new DnsServerTransportException("Failed to receive request", e);
         }
     }
 }

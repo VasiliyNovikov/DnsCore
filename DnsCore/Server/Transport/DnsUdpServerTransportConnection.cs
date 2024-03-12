@@ -6,14 +6,14 @@ using System.Threading.Tasks;
 
 namespace DnsCore.Server.Transport;
 
-public sealed class DnsUdpTransportConnection : DnsTransportConnection
+public sealed class DnsUdpServerTransportConnection : DnsServerTransportConnection
 {
     private readonly Socket _socket;
-    private DnsTransportRequest? _request;
+    private DnsServerTransportRequest? _request;
 
     public override EndPoint RemoteEndPoint { get; }
 
-    internal DnsUdpTransportConnection(Socket socket, EndPoint remoteEndPoint, DnsTransportRequest request)
+    internal DnsUdpServerTransportConnection(Socket socket, EndPoint remoteEndPoint, DnsServerTransportRequest request)
     {
         _socket = socket;
         RemoteEndPoint = remoteEndPoint;
@@ -22,9 +22,9 @@ public sealed class DnsUdpTransportConnection : DnsTransportConnection
 
     public override void Dispose() => _request?.Dispose();
 
-    public override ValueTask<DnsTransportRequest?> Receive(CancellationToken cancellationToken)
+    public override ValueTask<DnsServerTransportRequest?> Receive(CancellationToken cancellationToken)
     {
-        DnsTransportRequest? request;
+        DnsServerTransportRequest? request;
         if (_request is null)
             request = null;
         else
@@ -43,7 +43,7 @@ public sealed class DnsUdpTransportConnection : DnsTransportConnection
         }
         catch (SocketException e)
         {
-            throw new DnsTransportException("Failed to send response", e);
+            throw new DnsServerTransportException("Failed to send response", e);
         }
     }
 }

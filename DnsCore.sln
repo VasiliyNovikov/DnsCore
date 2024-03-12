@@ -7,6 +7,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DnsCore", "DnsCore\DnsCore.
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DnsCore.Tests", "DnsCore.Tests\DnsCore.Tests.csproj", "{F1021099-F926-4801-B8B4-E057B0164BA3}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DnsCore.TestServer", "DnsCore.TestServer\DnsCore.TestServer.csproj", "{645B9E33-0A5C-454F-8B49-71459A528CCE}"
+EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{321A7454-EF7E-493C-9577-764F97EFDF52}"
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
@@ -16,8 +18,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		LICENSE = LICENSE
 		README.md = README.md
 	EndProjectSection
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DnsCore.TestServer", "DnsCore.TestServer\DnsCore.TestServer.csproj", "{645B9E33-0A5C-454F-8B49-71459A528CCE}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".github", ".github", "{D3A0E077-7F61-4C4F-A81C-BE9006A523CF}"
 EndProject

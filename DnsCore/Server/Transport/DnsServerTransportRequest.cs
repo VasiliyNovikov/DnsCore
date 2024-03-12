@@ -3,7 +3,7 @@ using System.Buffers;
 
 namespace DnsCore.Server.Transport;
 
-public sealed class DnsTransportRequest(byte[] buffer, int length) : IDisposable
+public sealed class DnsServerTransportRequest(byte[] buffer, int length) : IDisposable
 {
     public static byte[] AllocateBuffer(int length) => ArrayPool<byte>.Shared.Rent(length);
     

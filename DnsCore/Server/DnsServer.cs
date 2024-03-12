@@ -14,8 +14,6 @@ namespace DnsCore.Server;
 
 public sealed partial class DnsServer : IDisposable, IAsyncDisposable
 {
-    private const ushort DefaultPort = 53;
-
     private readonly EndPoint _endPoint;
     private readonly DnsTransportType _transportType;
     private readonly Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> _handler;
@@ -42,7 +40,7 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
     }
 
     public DnsServer(IPAddress address, DnsTransportType transportType, Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, ILogger? logger = null)
-        : this(new IPEndPoint(address, DefaultPort), transportType, handler, logger)
+        : this(new IPEndPoint(address, DnsDefaults.Port), transportType, handler, logger)
     {
     }
 
@@ -84,7 +82,7 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         _started = true;
         try
         {
-            using var transport = DnsTransport.Create(_endPoint, _transportType);
+            using var transport = DnsServerTransport.Create(_endPoint, _transportType);
             if (_logger is not null)
                 LogStartedDnsServer(_logger, _endPoint);
             var tasks = Channel.CreateUnbounded<Task>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
@@ -135,7 +133,7 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         }
     }
 
-    private async Task AcceptConnections(ChannelWriter<Task> tasks, DnsTransport transport, CancellationToken cancellationToken)
+    private async Task AcceptConnections(ChannelWriter<Task> tasks, DnsServerTransport serverTransport, CancellationToken cancellationToken)
     {
         try
         {
@@ -143,12 +141,12 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
             {
                 try
                 {
-                    var connection = await transport.Accept(cancellationToken).ConfigureAwait(false);
+                    var connection = await serverTransport.Accept(cancellationToken).ConfigureAwait(false);
     #pragma warning disable CA2016 // On purpose
-                    await tasks.WriteAsync(ProcessRequests(transport, connection, cancellationToken));
+                    await tasks.WriteAsync(ProcessRequests(serverTransport, connection, cancellationToken));
     #pragma warning restore CA2016
                 }
-                catch (DnsTransportException e)
+                catch (DnsServerTransportException e)
                 {
                     if (_logger is not null)
                         LogErrorReceivingDnsRequest(_logger, e);
@@ -161,18 +159,18 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         }
     }
 
-    private async Task ProcessRequests(DnsTransport transport, DnsTransportConnection connection, CancellationToken cancellationToken)
+    private async Task ProcessRequests(DnsServerTransport serverTransport, DnsServerTransportConnection connection, CancellationToken cancellationToken)
     {
         using (connection)
         {
             while (true)
             {
-                DnsTransportRequest? transportRequest;
+                DnsServerTransportRequest? transportRequest;
                 try
                 {
                     transportRequest = await connection.Receive(cancellationToken).ConfigureAwait(false);
                 }
-                catch (DnsTransportException e)
+                catch (DnsServerTransportException e)
                 {
                     if (_logger is not null)
                         LogErrorReceivingDnsRequest(_logger, e);
@@ -194,22 +192,22 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
                         LogErrorDecodingDnsRequest(_logger, e, connection.RemoteEndPoint);
                     continue;
                 }
-                await HandleRequest(transport, connection, request, cancellationToken);
+                await HandleRequest(serverTransport, connection, request, cancellationToken);
             }
         }
     }
 
-    private async Task HandleRequest(DnsTransport transport, DnsTransportConnection connection, DnsRequest request, CancellationToken cancellationToken)
+    private async Task HandleRequest(DnsServerTransport serverTransport, DnsServerTransportConnection connection, DnsRequest request, CancellationToken cancellationToken)
     {
         await Task.Yield();
         var response = await InvokeRequestHandler(connection, request, cancellationToken).ConfigureAwait(false);
-        var buffer = ArrayPool<byte>.Shared.Rent(transport.MaxMessageSize);
+        var buffer = ArrayPool<byte>.Shared.Rent(serverTransport.MaxMessageSize);
         try
         {
             var length = EncodeResponse(connection, request, response, buffer);
             await connection.Send(buffer.AsMemory(0, length), cancellationToken).ConfigureAwait(false);
         }
-        catch (DnsTransportException e)
+        catch (DnsServerTransportException e)
         {
             if (_logger is not null)
                 LogErrorSendingDnsResponse(_logger, e, connection.RemoteEndPoint, response);
@@ -220,7 +218,7 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         }
     }
 
-    private async ValueTask<DnsResponse> InvokeRequestHandler(DnsTransportConnection connection, DnsRequest request, CancellationToken cancellationToken)
+    private async ValueTask<DnsResponse> InvokeRequestHandler(DnsServerTransportConnection connection, DnsRequest request, CancellationToken cancellationToken)
     {
         if (_logger is not null)
             LogDnsRequest(_logger, connection.RemoteEndPoint, request);
@@ -241,7 +239,7 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         return response;
     }
 
-    private int EncodeResponse(DnsTransportConnection connection, DnsRequest request, DnsResponse response, Span<byte> buffer)
+    private int EncodeResponse(DnsServerTransportConnection connection, DnsRequest request, DnsResponse response, Span<byte> buffer)
     {
         try
         {
