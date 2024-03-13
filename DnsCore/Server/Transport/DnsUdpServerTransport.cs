@@ -3,11 +3,14 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
+using DnsCore.Internal;
+
 namespace DnsCore.Server.Transport;
 
 public sealed class DnsUdpServerTransport : DnsServerTransport
 {
-    public override int MaxMessageSize => DnsDefaults.MaxUdpMessageSize;
+    public override ushort DefaultMessageSize => DnsDefaults.MaxUdpMessageSize / 2;
+    public override ushort MaxMessageSize => DnsDefaults.MaxUdpMessageSize;
 
     private readonly IPEndPoint _remoteEndPointPlaceholder;
     private readonly Socket _socket;
@@ -23,7 +26,7 @@ public sealed class DnsUdpServerTransport : DnsServerTransport
 
     public override async ValueTask<DnsServerTransportConnection> Accept(CancellationToken cancellationToken)
     {
-        var buffer = DnsServerTransportRequest.AllocateBuffer(MaxMessageSize);
+        var buffer = DnsBufferPool.Rent(DnsDefaults.MaxUdpMessageSize);
         try
         {
             var result = await _socket.ReceiveFromAsync(buffer, SocketFlags.None, _remoteEndPointPlaceholder, cancellationToken).ConfigureAwait(false);

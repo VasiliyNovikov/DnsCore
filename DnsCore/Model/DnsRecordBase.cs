@@ -8,7 +8,7 @@ public abstract class DnsRecordBase(DnsName name, DnsRecordType recordType, DnsC
     public DnsRecordType RecordType => recordType;
     public DnsClass Class => @class;
 
-    public override string ToString() => $"{name,-32} {@class,-4} {recordType,-6}";
+    public override string ToString() => $"{name,-40} {@class,-4} {recordType,-6}";
 
     internal virtual void Encode(ref DnsWriter writer)
     {
