@@ -14,6 +14,7 @@ using Microsoft.Extensions.Logging;
 
 var address = IPAddress.Parse(args[0]);
 var port = args.Length < 2 ? DnsDefaults.Port : ushort.Parse(args[1], CultureInfo.InvariantCulture);
+var transport = args.Length < 3 ? DnsTransportType.All : Enum.Parse<DnsTransportType>(args[2], true);
 
 var records = new DnsRecord[]
 {
@@ -32,7 +33,7 @@ var services = new ServiceCollection()
     .AddLogging(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Debug))
     .BuildServiceProvider();
 
-await using var server = new DnsServer(address, port, DnsTransportType.UDP, HandleRequest, services.GetRequiredService<ILogger<DnsServer>>());
+await using var server = new DnsServer(address, port, transport, HandleRequest, services.GetRequiredService<ILogger<DnsServer>>());
 await server.Run();
 return;
 

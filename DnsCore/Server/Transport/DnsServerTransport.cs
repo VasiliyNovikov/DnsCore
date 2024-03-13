@@ -5,21 +5,22 @@ using System.Threading.Tasks;
 
 namespace DnsCore.Server.Transport;
 
-public abstract class DnsServerTransport : IDisposable
+internal abstract class DnsServerTransport : IAsyncDisposable
 {
-    public abstract ushort DefaultMessageSize { get; }
-    public abstract ushort MaxMessageSize { get; }
-
-    public abstract void Dispose();
+    public abstract ValueTask DisposeAsync();
     public abstract ValueTask<DnsServerTransportConnection> Accept(CancellationToken cancellationToken);
-    
-    public static DnsServerTransport Create(EndPoint endPoint, DnsTransportType type = DnsTransportType.UDP)
+
+    public static DnsServerTransport Create(DnsTransportType type, EndPoint endPoint)
     {
-        return type switch
+        switch (type)
         {
-            DnsTransportType.UDP => new DnsUdpServerTransport(endPoint),
-            DnsTransportType.TCP => throw new NotImplementedException(),
-            _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
-        };
+            case DnsTransportType.UDP:
+                return new Udp.DnsUdpServerTransport(endPoint);
+            case DnsTransportType.TCP:
+            case DnsTransportType.All:
+                throw new NotImplementedException();
+            default:
+                throw new ArgumentOutOfRangeException(nameof(type), type, null);
+        }
     }
 }

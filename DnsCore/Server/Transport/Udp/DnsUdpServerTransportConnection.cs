@@ -4,13 +4,16 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace DnsCore.Server.Transport;
+namespace DnsCore.Server.Transport.Udp;
 
 public sealed class DnsUdpServerTransportConnection : DnsServerTransportConnection
 {
     private readonly Socket _socket;
     private DnsServerTransportRequest? _request;
 
+    public override DnsTransportType TransportType => DnsTransportType.UDP;
+    public override ushort DefaultMessageSize => DnsDefaults.DefaultUdpMessageSize;
+    public override ushort MaxMessageSize => DnsDefaults.MaxUdpMessageSize;
     public override EndPoint RemoteEndPoint { get; }
 
     internal DnsUdpServerTransportConnection(Socket socket, EndPoint remoteEndPoint, DnsServerTransportRequest request)

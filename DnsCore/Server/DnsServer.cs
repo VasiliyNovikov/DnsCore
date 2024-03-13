@@ -83,14 +83,14 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         _started = true;
         try
         {
-            using var transport = DnsServerTransport.Create(_endPoint, _transportType);
+            await using var transport = DnsServerTransport.Create(_transportType, _endPoint);
             if (_logger is not null)
-                LogStartedDnsServer(_logger, _endPoint);
+                LogStartedDnsServer(_logger, _endPoint, _transportType);
             var tasks = Channel.CreateUnbounded<Task>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
 #pragma warning disable CA2016 // On purpose
-            await tasks.Writer.WriteAsync(AcceptConnections(tasks, transport, cancellationToken));
+            await tasks.Writer.WriteAsync(AcceptConnections(tasks, transport, cancellationToken)).ConfigureAwait(false);
 #pragma warning restore CA2016
-            await WaitForTasksToCompleteOrFail(tasks.Reader);
+            await WaitForTasksToCompleteOrFail(tasks.Reader).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
         }
         catch (OperationCanceledException)
@@ -105,7 +105,7 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         finally
         {
             if (_logger is not null)
-                LogStoppedDnsServer(_logger, _endPoint);
+                LogStoppedDnsServer(_logger, _endPoint, _transportType);
         }
     }
 
@@ -115,15 +115,15 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         List<Task> pendingTasks = [waitForMoreTasks];
         while (pendingTasks.Count > 0)
         {
-            var task = await Task.WhenAny(pendingTasks);
+            var task = await Task.WhenAny(pendingTasks).ConfigureAwait(false);
             if (task.IsFaulted)
-                await task; // We want to throw the exception
+                await task.ConfigureAwait(false); // We want to throw the exception
 
             pendingTasks.Remove(task);
             if (task != waitForMoreTasks)
                 continue;
 
-            if (!await waitForMoreTasks)
+            if (!await waitForMoreTasks.ConfigureAwait(false))
                 continue;
 
             while (tasksReader.TryRead(out var newTask))
@@ -144,7 +144,7 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
                 {
                     var connection = await serverTransport.Accept(cancellationToken).ConfigureAwait(false);
     #pragma warning disable CA2016 // On purpose
-                    await tasks.WriteAsync(ProcessRequests(serverTransport, connection, cancellationToken));
+                    await tasks.WriteAsync(ProcessRequests(connection, cancellationToken)).ConfigureAwait(false);
     #pragma warning restore CA2016
                 }
                 catch (DnsServerTransportException e)
@@ -160,7 +160,7 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         }
     }
 
-    private async Task ProcessRequests(DnsServerTransport serverTransport, DnsServerTransportConnection connection, CancellationToken cancellationToken)
+    private async Task ProcessRequests(DnsServerTransportConnection connection, CancellationToken cancellationToken)
     {
         using (connection)
         {
@@ -190,19 +190,19 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
                 catch (FormatException e)
                 {
                     if (_logger != null)
-                        LogErrorDecodingDnsRequest(_logger, e, connection.RemoteEndPoint);
+                        LogErrorDecodingDnsRequest(_logger, e, connection.RemoteEndPoint, connection.TransportType);
                     continue;
                 }
-                await HandleRequest(serverTransport, connection, request, cancellationToken);
+                await HandleRequest(connection, request, cancellationToken).ConfigureAwait(false);
             }
         }
     }
 
-    private async Task HandleRequest(DnsServerTransport serverTransport, DnsServerTransportConnection connection, DnsRequest request, CancellationToken cancellationToken)
+    private async Task HandleRequest(DnsServerTransportConnection connection, DnsRequest request, CancellationToken cancellationToken)
     {
         await Task.Yield();
         var response = await InvokeRequestHandler(connection, request, cancellationToken).ConfigureAwait(false);
-        var bufferSize = serverTransport.DefaultMessageSize;
+        var bufferSize = connection.DefaultMessageSize;
         var buffer = DnsBufferPool.Rent(bufferSize);
         try
         {
@@ -216,13 +216,13 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
                 }
                 catch (FormatException) // Insufficient buffer size
                 {
-                    var newBufferSize = (ushort)Math.Min(bufferSize * 2, serverTransport.MaxMessageSize);
+                    var newBufferSize = (ushort)Math.Min(bufferSize * 2, connection.MaxMessageSize);
                     if (newBufferSize == bufferSize) // Max size reached
                     {
                         if (!response.Truncated)
                         {
                             if (_logger is not null)
-                                LogErrorDnsResponseTruncated(_logger, connection.RemoteEndPoint, response);
+                                LogErrorDnsResponseTruncated(_logger, connection.RemoteEndPoint, connection.TransportType, response);
 
                             response = request.Reply();
                             response.Truncated = true;
@@ -241,7 +241,7 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         catch (DnsServerTransportException e)
         {
             if (_logger is not null)
-                LogErrorSendingDnsResponse(_logger, e, connection.RemoteEndPoint, response);
+                LogErrorSendingDnsResponse(_logger, e, connection.RemoteEndPoint, connection.TransportType, response);
         }
         finally
         {
@@ -252,7 +252,7 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
     private async ValueTask<DnsResponse> InvokeRequestHandler(DnsServerTransportConnection connection, DnsRequest request, CancellationToken cancellationToken)
     {
         if (_logger is not null)
-            LogDnsRequest(_logger, connection.RemoteEndPoint, request);
+            LogDnsRequest(_logger, connection.RemoteEndPoint, connection.TransportType, request);
         DnsResponse response;
         try
         {
@@ -261,46 +261,46 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         catch (Exception e)
         {
             if (_logger is not null)
-                LogErrorHandlingDnsRequest(_logger, e, connection.RemoteEndPoint, request);
+                LogErrorHandlingDnsRequest(_logger, e, connection.RemoteEndPoint, connection.TransportType, request);
             response = request.Reply();
             response.Status = DnsResponseStatus.ServerFailure;
         }
         if (_logger is not null)
-            LogDnsResponse(_logger, connection.RemoteEndPoint, response);
+            LogDnsResponse(_logger, connection.RemoteEndPoint, connection.TransportType, response);
         return response;
     }
 
     #region Logging
 
-    [LoggerMessage(LogLevel.Debug, "Started DNS server on {EndPoint}")]
-    private static partial void LogStartedDnsServer(ILogger logger, EndPoint endPoint);
+    [LoggerMessage(LogLevel.Debug, "Started DNS server on {EndPoint} {TransportType}")]
+    private static partial void LogStartedDnsServer(ILogger logger, EndPoint endPoint, DnsTransportType transportType);
 
-    [LoggerMessage(LogLevel.Debug, "Stopped DNS server on {EndPoint}")]
-    private static partial void LogStoppedDnsServer(ILogger logger, EndPoint endPoint);
+    [LoggerMessage(LogLevel.Debug, "Stopped DNS server on {EndPoint} {TransportType}")]
+    private static partial void LogStoppedDnsServer(ILogger logger, EndPoint endPoint, DnsTransportType transportType);
 
     [LoggerMessage(LogLevel.Error, "Error receiving DNS request")]
     private static partial void LogErrorReceivingDnsRequest(ILogger logger, Exception e);
 
-    [LoggerMessage(LogLevel.Error, "Error sending DNS response to {RemoteEndPoint}:\n{Response}")]
-    private static partial void LogErrorSendingDnsResponse(ILogger logger, Exception e, EndPoint remoteEndPoint, DnsResponse response);
+    [LoggerMessage(LogLevel.Error, "Error sending DNS response to {RemoteEndPoint} {TransportType}:\n{Response}")]
+    private static partial void LogErrorSendingDnsResponse(ILogger logger, Exception e, EndPoint remoteEndPoint, DnsTransportType transportType, DnsResponse response);
 
-    [LoggerMessage(LogLevel.Error, "Error decoding DNS request from {RemoteEndPoint}")]
-    private static partial void LogErrorDecodingDnsRequest(ILogger logger, Exception e, EndPoint remoteEndPoint);
+    [LoggerMessage(LogLevel.Error, "Error decoding DNS request from {RemoteEndPoint} {TransportType}")]
+    private static partial void LogErrorDecodingDnsRequest(ILogger logger, Exception e, EndPoint remoteEndPoint, DnsTransportType transportType);
 
-    [LoggerMessage(LogLevel.Error, "Truncated DNS response to {RemoteEndPoint}:\n{Response}")]
-    private static partial void LogErrorDnsResponseTruncated(ILogger logger, EndPoint remoteEndPoint, DnsResponse response);
+    [LoggerMessage(LogLevel.Error, "Truncated DNS response to {RemoteEndPoint} {TransportType}:\n{Response}")]
+    private static partial void LogErrorDnsResponseTruncated(ILogger logger, EndPoint remoteEndPoint, DnsTransportType transportType, DnsResponse response);
 
     [LoggerMessage(LogLevel.Critical, "Error running DNS server on {EndPoint}")]
     private static partial void LogErrorRunningDnsServer(ILogger logger, Exception e, EndPoint endPoint);
 
-    [LoggerMessage(LogLevel.Debug, "Received DNS request from {RemoteEndPoint}:\n{Request}")]
-    private static partial void LogDnsRequest(ILogger logger, EndPoint remoteEndPoint, DnsRequest request);
+    [LoggerMessage(LogLevel.Debug, "Received DNS request from {RemoteEndPoint} {TransportType}:\n{Request}")]
+    private static partial void LogDnsRequest(ILogger logger, EndPoint remoteEndPoint, DnsTransportType transportType, DnsRequest request);
 
-    [LoggerMessage(LogLevel.Debug, "Sending DNS response to {RemoteEndPoint}:\n{Response}")]
-    private static partial void LogDnsResponse(ILogger logger, EndPoint remoteEndPoint, DnsResponse response);
+    [LoggerMessage(LogLevel.Debug, "Sending DNS response to {RemoteEndPoint} {TransportType}:\n{Response}")]
+    private static partial void LogDnsResponse(ILogger logger, EndPoint remoteEndPoint, DnsTransportType transportType, DnsResponse response);
 
-    [LoggerMessage(LogLevel.Critical, "Error handling DNS request from {RemoteEndPoint}:\n{Request}")]
-    private static partial void LogErrorHandlingDnsRequest(ILogger logger, Exception e, EndPoint remoteEndPoint, DnsRequest request);
+    [LoggerMessage(LogLevel.Critical, "Error handling DNS request from {RemoteEndPoint} {TransportType}:\n{Request}")]
+    private static partial void LogErrorHandlingDnsRequest(ILogger logger, Exception e, EndPoint remoteEndPoint, DnsTransportType transportType, DnsRequest request);
 
     #endregion
 }
