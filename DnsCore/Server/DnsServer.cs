@@ -82,7 +82,7 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         try
         {
             var tasks = new ServerTaskManager();
-            var transport = DnsServerTransport.Create(_transportType, _endPoint);
+            var transport = DnsServerTransport.Create(_transportType, [_endPoint]);
             await tasks.Add(AcceptConnections(tasks, transport, cancellationToken)).ConfigureAwait(false);
 
             if (_logger is not null)
