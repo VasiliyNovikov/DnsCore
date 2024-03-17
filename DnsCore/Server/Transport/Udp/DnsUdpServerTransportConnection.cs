@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace DnsCore.Server.Transport.Udp;
 
-public sealed class DnsUdpServerTransportConnection : DnsServerTransportConnection
+internal sealed class DnsUdpServerTransportConnection : DnsServerTransportConnection
 {
     private readonly Socket _socket;
     private DnsServerTransportRequest? _request;
