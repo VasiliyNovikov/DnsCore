@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Net;
 using System.Threading;
-using System.Threading.Channels;
 using System.Threading.Tasks;
 
 using DnsCore.Internal;
@@ -83,14 +81,14 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         _started = true;
         try
         {
-            await using var transport = DnsServerTransport.Create(_transportType, _endPoint);
+            var tasks = new ServerTaskManager();
+            var transport = DnsServerTransport.Create(_transportType, _endPoint);
+            await tasks.Add(AcceptConnections(tasks, transport, cancellationToken)).ConfigureAwait(false);
+
             if (_logger is not null)
                 LogStartedDnsServer(_logger, _endPoint, _transportType);
-            var tasks = Channel.CreateUnbounded<Task>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
-#pragma warning disable CA2016 // On purpose
-            await tasks.Writer.WriteAsync(AcceptConnections(tasks, transport, cancellationToken)).ConfigureAwait(false);
-#pragma warning restore CA2016
-            await WaitForTasksToCompleteOrFail(tasks.Reader).ConfigureAwait(false);
+
+            await tasks.Wait().ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
         }
         catch (OperationCanceledException)
@@ -109,54 +107,30 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         }
     }
 
-    private static async Task WaitForTasksToCompleteOrFail(ChannelReader<Task> tasksReader)
+    private async Task AcceptConnections(ServerTaskManager tasks, DnsServerTransport serverTransport, CancellationToken cancellationToken)
     {
-        var waitForMoreTasks = tasksReader.WaitToReadAsync().AsTask();
-        List<Task> pendingTasks = [waitForMoreTasks];
-        while (pendingTasks.Count > 0)
+        await using (serverTransport.ConfigureAwait(false))
         {
-            var task = await Task.WhenAny(pendingTasks).ConfigureAwait(false);
-            if (task.IsFaulted)
-                await task.ConfigureAwait(false); // We want to throw the exception
-
-            pendingTasks.Remove(task);
-            if (task != waitForMoreTasks)
-                continue;
-
-            if (!await waitForMoreTasks.ConfigureAwait(false))
-                continue;
-
-            while (tasksReader.TryRead(out var newTask))
-                pendingTasks.Add(newTask);
-
-            waitForMoreTasks = tasksReader.WaitToReadAsync().AsTask();
-            pendingTasks.Add(waitForMoreTasks);
-        }
-    }
-
-    private async Task AcceptConnections(ChannelWriter<Task> tasks, DnsServerTransport serverTransport, CancellationToken cancellationToken)
-    {
-        try
-        {
-            while (true)
+            try
             {
-                try
+                while (true)
                 {
-                    var connection = await serverTransport.Accept(cancellationToken).ConfigureAwait(false);
-    #pragma warning disable CA2016 // On purpose
-                    await tasks.WriteAsync(ProcessRequests(connection, cancellationToken)).ConfigureAwait(false);
-    #pragma warning restore CA2016
-                }
-                catch (DnsServerTransportException e)
-                {
-                    if (_logger is not null)
-                        LogErrorReceivingDnsRequest(_logger, e);
+                    try
+                    {
+                        var connection = await serverTransport.Accept(cancellationToken).ConfigureAwait(false);
+                        await tasks.Add(ProcessRequests(connection, cancellationToken)).ConfigureAwait(false);
+                    }
+                    catch (DnsServerTransportException e)
+                    {
+                        if (_logger is not null)
+                            LogErrorReceivingDnsRequest(_logger, e);
+                    }
                 }
             }
-        }
-        finally
-        {
-            tasks.Complete();
+            finally
+            {
+                tasks.CompleteAdding();
+            }
         }
     }
 

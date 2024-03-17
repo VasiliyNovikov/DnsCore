@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace DnsCore.Server.Transport;
 
-public abstract class DnsServerTransportConnection : IDisposable
+internal abstract class DnsServerTransportConnection : IDisposable
 {
     public abstract DnsTransportType TransportType { get; }
     public abstract ushort DefaultMessageSize { get; }
