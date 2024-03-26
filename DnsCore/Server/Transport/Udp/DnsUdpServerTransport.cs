@@ -3,7 +3,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
-using DnsCore.Internal;
+using DnsCore.Common;
 
 namespace DnsCore.Server.Transport.Udp;
 
@@ -13,13 +13,12 @@ internal sealed class DnsUdpServerTransport(EndPoint endPoint) : DnsServerSocket
 
     public override async ValueTask<DnsServerTransportConnection> Accept(CancellationToken cancellationToken)
     {
-        var buffer = DnsBufferPool.Rent(DnsDefaults.MaxUdpMessageSize);
         try
         {
-            var result = await Socket.ReceiveFromAsync(buffer, SocketFlags.None, _remoteEndPointPlaceholder, cancellationToken).ConfigureAwait(false);
-            return new DnsUdpServerTransportConnection(Socket, result.RemoteEndPoint, new DnsServerTransportRequest(buffer, result.ReceivedBytes));
+            var (remoteEndPoint, message) = await Socket.ReceiveUdpMessageFrom(_remoteEndPointPlaceholder, cancellationToken).ConfigureAwait(false);
+            return new DnsUdpServerTransportConnection(Socket, remoteEndPoint, message);
         }
-        catch (SocketException e)
+        catch (DnsSocketException e)
         {
             throw new DnsServerTransportException("Failed to receive request", e);
         }

@@ -4,6 +4,8 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 
+using DnsCore.Common;
+
 namespace DnsCore.Server.Transport;
 
 internal abstract class DnsServerTransport : IAsyncDisposable

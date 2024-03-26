@@ -19,6 +19,14 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+
+      - name: Setup Python dnslib
+        run: pip3 install dnslib
+
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v3
         with:

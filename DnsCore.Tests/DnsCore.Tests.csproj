@@ -7,4 +7,9 @@
   <ItemGroup>
     <ProjectReference Include="..\DnsCore\DnsCore.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Update="test_server.py">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 </Project>

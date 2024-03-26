@@ -1,4 +1,4 @@
-namespace DnsCore.Server;
+namespace DnsCore.Common;
 
 public enum DnsTransportType
 {

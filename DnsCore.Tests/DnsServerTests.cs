@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
+using DnsCore.Common;
 using DnsCore.Model;
 using DnsCore.Server;
 
