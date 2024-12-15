@@ -49,8 +49,8 @@ public readonly struct DnsLabel
 
         return;
 
-        static bool IsLetterOrDigit(char c) => c is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9');
-        static bool IsLetterOrDigitOrHyphen(char c) => IsLetterOrDigit(c) || c == '-';
+        static bool IsLetterOrDigit(char c) => c is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9') or '_';
+        static bool IsLetterOrDigitOrHyphen(char c) => IsLetterOrDigit(c) || c == '-' || c == '_';
     }   
 
     internal static DnsLabel ParseCore(StringSegment label)
