@@ -1,4 +1,3 @@
-using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -40,11 +39,11 @@ internal sealed class DnsUdpServerTransportConnection : DnsServerTransportConnec
         return ValueTask.FromResult(message);
     }
 
-    public override async ValueTask Send(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken)
+    public override async ValueTask Send(DnsTransportMessage responseMessage, CancellationToken cancellationToken)
     {
         try
         {
-            await _socket.SendToAsync(buffer, SocketFlags.None, RemoteEndPoint, cancellationToken).ConfigureAwait(false);
+            await _socket.SendToAsync(responseMessage.Buffer, SocketFlags.None, RemoteEndPoint, cancellationToken).ConfigureAwait(false);
         }
         catch (SocketException e)
         {

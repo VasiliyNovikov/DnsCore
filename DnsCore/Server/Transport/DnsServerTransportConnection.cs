@@ -15,5 +15,5 @@ internal abstract class DnsServerTransportConnection : IDisposable
     public abstract EndPoint RemoteEndPoint { get; }
     public abstract void Dispose();
     public abstract ValueTask<DnsTransportMessage?> Receive(CancellationToken cancellationToken);
-    public abstract ValueTask Send(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken);
+    public abstract ValueTask Send(DnsTransportMessage responseMessage, CancellationToken cancellationToken);
 }
