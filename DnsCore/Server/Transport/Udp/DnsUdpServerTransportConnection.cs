@@ -43,9 +43,9 @@ internal sealed class DnsUdpServerTransportConnection : DnsServerTransportConnec
     {
         try
         {
-            await _socket.SendToAsync(responseMessage.Buffer, SocketFlags.None, RemoteEndPoint, cancellationToken).ConfigureAwait(false);
+            await _socket.SendUdpMessageTo(responseMessage, RemoteEndPoint, cancellationToken).ConfigureAwait(false);
         }
-        catch (SocketException e)
+        catch (DnsSocketException e)
         {
             throw new DnsServerTransportException("Failed to send response", e);
         }

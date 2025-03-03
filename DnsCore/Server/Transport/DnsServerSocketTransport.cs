@@ -24,7 +24,7 @@ internal abstract class DnsServerSocketTransport : DnsServerTransport
             Socket.Dispose();
             return ValueTask.CompletedTask;
         }
-        catch (SocketException e)
+        catch (Exception e)
         {
             return ValueTask.FromException(e);
         }
