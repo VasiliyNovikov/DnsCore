@@ -1,10 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <Import Project="../DnsCore.targets" />
   <PropertyGroup>
-    <Version>0.1.15</Version>
+    <Version>0.1.16</Version>
     <PackageVersion>$(Version)$(VersionSuffix)</PackageVersion>
     <Authors>Vasyl Novikov</Authors>
-    <Description>.NET lightweight DNS client and server</Description>
+    <Description>.NET lightweight DNS server &amp; client</Description>
     <Copyright>Vasyl Novikov</Copyright>
     <PackageProjectUrl>https://github.com/VasiliyNovikov/DnsCore</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
