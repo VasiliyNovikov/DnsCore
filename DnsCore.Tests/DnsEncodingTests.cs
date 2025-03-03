@@ -11,7 +11,7 @@ namespace DnsCore.Tests;
 [TestClass]
 public class DnsEncodingTests
 {
-   //[TestMethod]
+    [TestMethod]
     public void Test_Encode_Decode()
     {
         List<DnsRequest> requests = [
@@ -114,5 +114,79 @@ public class DnsEncodingTests
             Assert.ThrowsException<FormatException>(() => DnsRequest.Decode(messageMem.Span));
             Assert.ThrowsException<FormatException>(() => DnsResponse.Decode(messageMem.Span));
         }
+    }
+
+    private static Memory<byte> CreateMessageForCompressionLoopTests(string name)
+    {
+        var buffer = new byte[DnsDefaults.MaxUdpMessageSize];
+        var message = new DnsRequest(DnsName.Parse(name), DnsRecordType.A);
+        var length = message.Encode(buffer);
+        return buffer.AsMemory(0, length);
+    }
+
+    [TestMethod]
+    public void Test_Decode_Compression_Loop()
+    {
+        const string testName = "test.wxyz";
+        var encodedTestName = "\x0004test\x0004wxyz\0"u8;
+        Assert.AreEqual(11, encodedTestName.Length); // Self-check
+
+        var messageMem = CreateMessageForCompressionLoopTests(testName);
+        var messageSpan = messageMem.Span;
+        const ushort questionNameOffset = 12; // 0x0C
+        var questionName = messageSpan.Slice(questionNameOffset, encodedTestName.Length);
+        Assert.IsTrue(encodedTestName.SequenceEqual(questionName)); // Self-check
+        
+        // Replace "\x0004w" in "\x0004wxyz" with a pointer to the beginning of name
+        const ushort wxyzLabelOffset = questionNameOffset + 5;
+        messageSpan[wxyzLabelOffset] = 0xC0;  // Compression Mask
+        messageSpan[wxyzLabelOffset + 1] = (byte)questionNameOffset;
+
+        Assert.ThrowsException<FormatException>(() => DnsRequest.Decode(messageMem.Span)); // Former implementation was throwing StackOverflowException
+    }
+
+    [TestMethod]
+    public void Test_Decode_Compression_Pointer_Refs_To_Itself()
+    {
+        const string testName = "test";
+        var encodedTestName = "\x0004test\0"u8;
+        Assert.AreEqual(6, encodedTestName.Length); // Self-check
+
+        var messageMem = CreateMessageForCompressionLoopTests(testName);
+        var messageSpan = messageMem.Span;
+        const ushort questionNameOffset = 12; // 0x0C
+        var questionName = messageSpan.Slice(questionNameOffset, encodedTestName.Length);
+        Assert.IsTrue(encodedTestName.SequenceEqual(questionName)); // Self-check
+        
+        // Replace "\x0004t" in "\x0004test" with a pointer to itself
+        messageSpan[questionNameOffset] = 0xC0;  // Compression Mask
+        messageSpan[questionNameOffset + 1] = (byte)questionNameOffset;
+
+        Assert.ThrowsException<FormatException>(() => DnsRequest.Decode(messageMem.Span)); // Former implementation was throwing StackOverflowException
+    }
+
+    [TestMethod]
+    public void Test_Decode_Compression_Pointer_Loop()
+    {
+        const string testName = "test.wxyz";
+        var encodedTestName = "\x0004test\x0004wxyz\0"u8;
+        Assert.AreEqual(11, encodedTestName.Length); // Self-check
+
+        var messageMem = CreateMessageForCompressionLoopTests(testName);
+        var messageSpan = messageMem.Span;
+        const ushort questionNameOffset = 12; // 0x0C
+        var questionName = messageSpan.Slice(questionNameOffset, encodedTestName.Length);
+        Assert.IsTrue(encodedTestName.SequenceEqual(questionName)); // Self-check
+
+        // Replace "\x0004w" in "\x0004wxyz" with a pointer to the beginning of name
+        const ushort wxyzLabelOffset = questionNameOffset + 5;
+        messageSpan[wxyzLabelOffset] = 0xC0;  // Compression Mask
+        messageSpan[wxyzLabelOffset + 1] = (byte)questionNameOffset;
+
+        // Replace "\x0004t" in "\x0004test" with a pointer to the above pointer creating a pointer loop
+        messageSpan[questionNameOffset] = 0xC0;  // Compression Mask
+        messageSpan[questionNameOffset + 1] = (byte)wxyzLabelOffset;
+
+        Assert.ThrowsException<FormatException>(() => DnsRequest.Decode(messageMem.Span)); // Former implementation was throwing StackOverflowException
     }
 }
