@@ -120,15 +120,21 @@ public sealed class DnsName
         Parent?.Encode(ref writer);
     }
 
-    internal static DnsName Decode(ref DnsReader reader)
+    internal static DnsName Decode(ref DnsReader reader, int maxLength = MaxLength, bool canStartWithCompression = true)
     {
+        if (maxLength <= 0)
+            throw new FormatException("DNS name too long");
+
         if (reader.Peek<byte>() >= CompressionMask)
         {
+            if (!canStartWithCompression)
+                throw new FormatException("DNS name compression pointer can't point to another pointer");
+
             var offset = reader.Read<ushort>() & OffsetMaskInverted;
             if (!reader.GetNameByOffset(offset, out var name))
             {
                 var offsetReader = reader.GetSubReader(offset);
-                name = Decode(ref offsetReader);
+                name = Decode(ref offsetReader, maxLength, false);
                 reader.AddNameOffset(name, offset);
             }
             return name;
@@ -140,7 +146,7 @@ public sealed class DnsName
             if (label.IsEmpty)
                 return Empty;
 
-            var parent = Decode(ref reader);
+            var parent = Decode(ref reader, maxLength - label.Length - 1);
             var name = new DnsName(label, parent);
             reader.AddNameOffset(name, offset);
             return name;
