@@ -1,40 +1,37 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 
 namespace DnsCore.Server.Transport.Hybrid;
 
 internal sealed class DnsServerHybridTransport : DnsServerTransport
 {
-    private readonly DnsServerTransport[] _transports;
-    private readonly Task<DnsServerTransportConnection>?[] _pendingAcceptTasks;
+    private readonly CancellationTokenSource _cancellation = new();
+    private readonly Channel<Task<DnsServerTransportConnection>> _connectionTaskQueue = Channel.CreateUnbounded<Task<DnsServerTransportConnection>>();
+    private readonly Task[] _transportWorkers;
 
-    internal DnsServerHybridTransport(IReadOnlyCollection<DnsServerTransport> transports)
+    internal DnsServerHybridTransport(IReadOnlyList<DnsServerTransport> transports)
     {
-        _transports = [..transports];
-        _pendingAcceptTasks = new Task<DnsServerTransportConnection>?[transports.Count];
+        _transportWorkers = new Task[transports.Count];
+        for (var i = 0; i < transports.Count; ++i)
+            _transportWorkers[i] = TransportWorker(transports[i]);
     }
 
     public override async ValueTask DisposeAsync()
     {
-        foreach (var transport in _transports)
-            await transport.DisposeAsync().ConfigureAwait(false);
-
-        foreach (var pendingAcceptTask in _pendingAcceptTasks)
+        await _cancellation.CancelAsync().ConfigureAwait(false);
+        foreach (var transportWorker in _transportWorkers)
+            await transportWorker.ConfigureAwait(false);
+        _connectionTaskQueue.Writer.Complete();
+        await foreach (var connectionTask in _connectionTaskQueue.Reader.ReadAllAsync().ConfigureAwait(false))
         {
-            if (pendingAcceptTask is null)
-                continue;
-
             try
             {
-                await pendingAcceptTask.ConfigureAwait(false);
+                await connectionTask.ConfigureAwait(false);
             }
             catch (DnsServerTransportException)
-            {
-                // ignored
-            }
-            catch (OperationCanceledException)
             {
                 // ignored
             }
@@ -43,29 +40,27 @@ internal sealed class DnsServerHybridTransport : DnsServerTransport
 
     public override async ValueTask<DnsServerTransportConnection> Accept(CancellationToken cancellationToken)
     {
-        for (var i = 0; i < _pendingAcceptTasks.Length; ++i)
+        var connectionTask = await _connectionTaskQueue.Reader.ReadAsync(cancellationToken).ConfigureAwait(false);
+        return await connectionTask.ConfigureAwait(false);
+    }
+
+    private async Task TransportWorker(DnsServerTransport transport)
+    {
+        try
         {
-            var pendingAcceptTask = _pendingAcceptTasks[i];
-            if (pendingAcceptTask is { IsCompleted: true })
+            await using (transport.ConfigureAwait(false))
             {
-                _pendingAcceptTasks[i] = null;
-                return await pendingAcceptTask.ConfigureAwait(false);
+                while (true)
+                {
+                    var connectionTask = transport.Accept(CancellationToken.None).AsTask();
+                    await connectionTask.WaitAsync(_cancellation.Token).ConfigureAwait(false);
+                    await _connectionTaskQueue.Writer.WriteAsync(connectionTask).ConfigureAwait(false);
+                }
             }
         }
-        
-        for (var i = 0; i < _transports.Length; ++i)
-            _pendingAcceptTasks[i] ??= _transports[i].Accept(cancellationToken).AsTask();
-
-        var completedTask = await Task.WhenAny(_pendingAcceptTasks!).ConfigureAwait(false);
-        for (var i = 0; i < _pendingAcceptTasks.Length; ++i)
+        catch (OperationCanceledException)
         {
-            if (_pendingAcceptTasks[i] == completedTask)
-            {
-                _pendingAcceptTasks[i] = null;
-                break;
-            }
+            // ignored
         }
-
-        return await completedTask.ConfigureAwait(false);
     }
 }
