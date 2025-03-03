@@ -159,7 +159,7 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
                 try
                 {
                     using (transportRequest)
-                        request = DnsRequest.Decode(transportRequest.Buffer);
+                        request = DnsRequest.Decode(transportRequest.Buffer.Span);
                 }
                 catch (FormatException e)
                 {
@@ -185,7 +185,8 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
                 try
                 {
                     var length = response.Encode(buffer);
-                    await connection.Send(buffer.AsMemory(0, length), cancellationToken).ConfigureAwait(false);
+                    using var responseMessage = new DnsTransportMessage(buffer, length, false);
+                    await connection.Send(responseMessage, cancellationToken).ConfigureAwait(false);
                     return;
                 }
                 catch (FormatException) // Insufficient buffer size

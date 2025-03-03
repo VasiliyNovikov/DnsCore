@@ -58,8 +58,9 @@ internal sealed class DnsTcpServerTransportConnection : DnsServerTransportConnec
         }
     }
 
-    public override async ValueTask Send(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken)
+    public override async ValueTask Send(DnsTransportMessage responseMessage, CancellationToken cancellationToken)
     {
+        var buffer = responseMessage.Buffer;
         var lengthBuffer = DnsBufferPool.Rent(2);
         try
         {
