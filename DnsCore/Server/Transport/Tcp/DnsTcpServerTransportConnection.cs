@@ -5,7 +5,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
-using DnsCore.Internal;
+using DnsCore.Common;
 
 namespace DnsCore.Server.Transport.Tcp;
 
@@ -22,7 +22,7 @@ internal sealed class DnsTcpServerTransportConnection : DnsServerTransportConnec
 
     public override void Dispose() => _socket.Dispose();
 
-    public override async ValueTask<DnsServerTransportRequest?> Receive(CancellationToken cancellationToken)
+    public override async ValueTask<DnsTransportMessage?> Receive(CancellationToken cancellationToken)
     {
         var lengthBuffer = DnsBufferPool.Rent(2);
         try
@@ -46,7 +46,7 @@ internal sealed class DnsTcpServerTransportConnection : DnsServerTransportConnec
 
                 totalReceivedBytes += receivedBytes;
             }
-            return new DnsServerTransportRequest(requestBuffer, totalReceivedBytes);
+            return new DnsTransportMessage(requestBuffer, totalReceivedBytes);
         }
         catch (SocketException e)
         {

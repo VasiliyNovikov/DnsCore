@@ -4,36 +4,38 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
+using DnsCore.Common;
+
 namespace DnsCore.Server.Transport.Udp;
 
 internal sealed class DnsUdpServerTransportConnection : DnsServerTransportConnection
 {
     private readonly Socket _socket;
-    private DnsServerTransportRequest? _request;
+    private DnsTransportMessage? _message;
 
     public override DnsTransportType TransportType => DnsTransportType.UDP;
     public override ushort DefaultMessageSize => DnsDefaults.DefaultUdpMessageSize;
     public override ushort MaxMessageSize => DnsDefaults.MaxUdpMessageSize;
     public override EndPoint RemoteEndPoint { get; }
 
-    internal DnsUdpServerTransportConnection(Socket socket, EndPoint remoteEndPoint, DnsServerTransportRequest request)
+    internal DnsUdpServerTransportConnection(Socket socket, EndPoint remoteEndPoint, DnsTransportMessage message)
     {
         _socket = socket;
         RemoteEndPoint = remoteEndPoint;
-        _request = request;
+        _message = message;
     }
 
-    public override void Dispose() => _request?.Dispose();
+    public override void Dispose() => _message?.Dispose();
 
-    public override ValueTask<DnsServerTransportRequest?> Receive(CancellationToken cancellationToken)
+    public override ValueTask<DnsTransportMessage?> Receive(CancellationToken cancellationToken)
     {
-        DnsServerTransportRequest? request;
-        if (_request is null)
+        DnsTransportMessage? request;
+        if (_message is null)
             request = null;
         else
         {
-            request = _request;
-            _request = null;
+            request = _message;
+            _message = null;
         }
         return ValueTask.FromResult(request);
     }

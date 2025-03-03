@@ -1,6 +1,6 @@
 using System.Buffers;
 
-namespace DnsCore.Internal;
+namespace DnsCore.Common;
 
 internal static class DnsBufferPool
 {

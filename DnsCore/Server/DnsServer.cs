@@ -3,7 +3,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 
-using DnsCore.Internal;
+using DnsCore.Common;
 using DnsCore.Model;
 using DnsCore.Server.Transport;
 
@@ -140,7 +140,7 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         {
             while (true)
             {
-                DnsServerTransportRequest? transportRequest;
+                DnsTransportMessage? transportRequest;
                 try
                 {
                     transportRequest = await connection.Receive(cancellationToken).ConfigureAwait(false);
