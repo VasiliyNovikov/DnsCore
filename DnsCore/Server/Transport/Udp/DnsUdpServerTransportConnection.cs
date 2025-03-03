@@ -29,15 +29,15 @@ internal sealed class DnsUdpServerTransportConnection : DnsServerTransportConnec
 
     public override ValueTask<DnsTransportMessage?> Receive(CancellationToken cancellationToken)
     {
-        DnsTransportMessage? request;
+        DnsTransportMessage? message;
         if (_message is null)
-            request = null;
+            message = null;
         else
         {
-            request = _message;
+            message = _message;
             _message = null;
         }
-        return ValueTask.FromResult(request);
+        return ValueTask.FromResult(message);
     }
 
     public override async ValueTask Send(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken)
