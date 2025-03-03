@@ -38,7 +38,11 @@ internal sealed class DnsServerHybridTransport : DnsServerTransport
         }
     }
 
-    public override async ValueTask<DnsServerTransportConnection> Accept(CancellationToken cancellationToken) => await await _connectionTaskQueue.Reader.ReadAsync(cancellationToken);
+    public override async ValueTask<DnsServerTransportConnection> Accept(CancellationToken cancellationToken)
+    {
+        var connectionTask = await _connectionTaskQueue.Reader.ReadAsync(cancellationToken).ConfigureAwait(false);
+        return await connectionTask.ConfigureAwait(false);
+    }
 
     private async Task TransportWorker(DnsServerTransport transport)
     {
