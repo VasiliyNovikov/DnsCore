@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Buffers.Binary;
 
-using DnsCore.Encoding;
+using DnsCore.IO;
 
 namespace DnsCore.Model;
 
