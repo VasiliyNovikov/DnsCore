@@ -4,12 +4,16 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 
+using DnsCore.Utils;
+
 namespace DnsCore.Server.Transport.Hybrid;
 
 internal sealed class DnsServerHybridTransport : DnsServerTransport
 {
+    private const int ConnectionQueueSize = 256;
+
     private readonly CancellationTokenSource _cancellation = new();
-    private readonly Channel<Task<DnsServerTransportConnection>> _connectionTaskQueue = Channel.CreateUnbounded<Task<DnsServerTransportConnection>>();
+    private readonly Channel<Task<DnsServerTransportConnection>> _connectionTaskQueue = Channel.CreateBounded<Task<DnsServerTransportConnection>>(ConnectionQueueSize);
     private readonly Task[] _transportWorkers;
 
     internal DnsServerHybridTransport(IReadOnlyList<DnsServerTransport> transports)
@@ -24,6 +28,7 @@ internal sealed class DnsServerHybridTransport : DnsServerTransport
         await _cancellation.CancelAsync().ConfigureAwait(false);
         foreach (var transportWorker in _transportWorkers)
             await transportWorker.ConfigureAwait(false);
+        _cancellation.Dispose();
         _connectionTaskQueue.Writer.Complete();
         await foreach (var connectionTask in _connectionTaskQueue.Reader.ReadAllAsync().ConfigureAwait(false))
         {
@@ -46,21 +51,33 @@ internal sealed class DnsServerHybridTransport : DnsServerTransport
 
     private async Task TransportWorker(DnsServerTransport transport)
     {
-        try
+        var cancellationToken = _cancellation.Token;
+        await using (transport.ConfigureAwait(false))
         {
-            await using (transport.ConfigureAwait(false))
+            while (true)
             {
-                while (true)
+                var connectionTask = await transport.Accept(cancellationToken).WhenCompleted().ConfigureAwait(false);
+                try
                 {
-                    var connectionTask = transport.Accept(CancellationToken.None).AsTask();
-                    await connectionTask.WaitAsync(_cancellation.Token).ConfigureAwait(false);
-                    await _connectionTaskQueue.Writer.WriteAsync(connectionTask).ConfigureAwait(false);
+                    await _connectionTaskQueue.Writer.WriteAsync(connectionTask, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    try
+                    {
+                        await connectionTask.ConfigureAwait(false);
+                    }
+                    catch (DnsServerTransportException)
+                    {
+                        // ignored
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // ignored
+                    }
+                    break;
                 }
             }
-        }
-        catch (OperationCanceledException)
-        {
-            // ignored
         }
     }
 }
