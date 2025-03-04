@@ -14,9 +14,10 @@ public abstract class DnsMessage
     public bool RecursionDesired { get; set; }
 
     public List<DnsQuestion> Questions { get; } = new(1);
+    public List<DnsRecord> Additional { get; } = new();
 
     private protected DnsMessage(DnsRawMessage rawMessage)
-        : this(rawMessage.Id, rawMessage.Questions)
+        : this(rawMessage.Id, rawMessage.Questions, rawMessage.Additional)
     {
         RequestType = (rawMessage.Flags & DnsFlags.OpCodeMask) switch
         {
@@ -27,11 +28,13 @@ public abstract class DnsMessage
         RecursionDesired = (rawMessage.Flags & DnsFlags.RecursionDesired) == DnsFlags.RecursionDesired;
     }
 
-    protected DnsMessage(ushort id, IEnumerable<DnsQuestion>? questions = null)
+    protected DnsMessage(ushort id, IEnumerable<DnsQuestion>? questions = null, IEnumerable<DnsRecord>? additional = null)
     {
         Id = id;
         if (questions is not null)
             Questions.AddRange(questions);
+        if (additional is not null)
+            Additional.AddRange(additional);
     }
 
     private protected virtual void FormatHeader(StringBuilder target)
@@ -56,9 +59,7 @@ public abstract class DnsMessage
         return result.ToString();
     }
 
-    public int Encode(Span<byte> buffer) => ToRawMessage().Encode(buffer);
-
-    private protected abstract DnsRawMessage ToRawMessage();
+    internal abstract DnsRawMessage ToRawMessage();
 
     private protected virtual DnsFlags GetRawFlags()
     {

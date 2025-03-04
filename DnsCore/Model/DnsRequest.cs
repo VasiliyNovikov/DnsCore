@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 using DnsCore.Model.Internal;
 
@@ -7,7 +6,7 @@ namespace DnsCore.Model;
 
 public sealed class DnsRequest : DnsMessage
 {
-    private DnsRequest(DnsRawMessage rawMessage)
+    internal DnsRequest(DnsRawMessage rawMessage)
         : base(rawMessage)
     {
     }
@@ -50,7 +49,5 @@ public sealed class DnsRequest : DnsMessage
         return response;
     }
 
-    public static DnsRequest Decode(ReadOnlySpan<byte> buffer) => new(DnsRawMessage.Decode(buffer));
-
-    private protected override DnsRawMessage ToRawMessage() => new(Id, GetRawFlags(), [.. Questions], [], [], []);
+    internal override DnsRawMessage ToRawMessage() => new(Id, GetRawFlags(), [.. Questions], [], [], [.. Additional]);
 }
