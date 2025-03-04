@@ -15,9 +15,8 @@ public sealed class DnsResponse : DnsMessage
     public DnsResponseStatus Status { get; set; }
     public List<DnsRecord> Answers { get; } = new(1);
     public List<DnsRecord> Authorities { get; } = new();
-    public List<DnsRecord> Additional { get; } = new();
 
-    private DnsResponse(DnsRawMessage rawMessage)
+    internal DnsResponse(DnsRawMessage rawMessage)
         : base(rawMessage)
     {
         RecursionAvailable = (rawMessage.Flags & DnsFlags.RecursionAvailable) == DnsFlags.RecursionAvailable;
@@ -34,7 +33,6 @@ public sealed class DnsResponse : DnsMessage
         };
         Answers.AddRange(rawMessage.Answers);
         Authorities.AddRange(rawMessage.Authorities);
-        Additional.AddRange(rawMessage.Additional);
     }
 
     public DnsResponse(ushort id, IEnumerable<DnsQuestion>? questions = null, IEnumerable<DnsRecord>? answers = null) : base(id, questions)
@@ -83,9 +81,7 @@ public sealed class DnsResponse : DnsMessage
         }
     }
 
-    public static DnsResponse Decode(ReadOnlySpan<byte> buffer) => new(DnsRawMessage.Decode(buffer));
-
-    private protected override DnsRawMessage ToRawMessage() => new(Id, GetRawFlags(), [.. Questions], [.. Answers], [.. Authorities], [.. Additional]);
+    internal override DnsRawMessage ToRawMessage() => new(Id, GetRawFlags(), [.. Questions], [.. Answers], [.. Authorities], [.. Additional]);
 
     private protected override DnsFlags GetRawFlags()
     {

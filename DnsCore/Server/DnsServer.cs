@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 
 using DnsCore.Common;
 using DnsCore.Model;
+using DnsCore.Model.Encoding;
 using DnsCore.Server.Transport;
 
 using Microsoft.Extensions.Logging;
@@ -159,7 +160,7 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
                 try
                 {
                     using (transportRequest)
-                        request = DnsRequest.Decode(transportRequest.Buffer.Span);
+                        request = DnsRequestEncoder.Decode(transportRequest.Buffer.Span);
                 }
                 catch (FormatException e)
                 {
@@ -184,7 +185,7 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
             {
                 try
                 {
-                    var length = response.Encode(buffer);
+                    var length = DnsResponseEncoder.Encode(buffer, response);
                     using var responseMessage = new DnsTransportMessage(buffer, length, false);
                     await connection.Send(responseMessage, cancellationToken).ConfigureAwait(false);
                     return;

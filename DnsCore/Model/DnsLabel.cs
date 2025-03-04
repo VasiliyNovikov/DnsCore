@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Numerics;
 
-using DnsCore.IO;
-
 using Microsoft.Extensions.Primitives;
 
 namespace DnsCore.Model;
@@ -13,19 +11,20 @@ public readonly struct DnsLabel
     , ISpanFormattable
 {
     private const byte MaxLength = 63;
-    private static readonly System.Text.Encoding Encoding = System.Text.Encoding.ASCII;
 
     public static DnsLabel Empty { get; } = new(StringSegment.Empty);
 
     private readonly StringSegment _label;
 
+    public ReadOnlySpan<char> Span => _label.AsSpan();
+
     public int Length => _label.Length;
 
     public bool IsEmpty => _label.Length == 0;
 
-    private DnsLabel(StringSegment label) => _label = label;
+    internal DnsLabel(StringSegment label) => _label = label;
 
-    private static void Validate(StringSegment label)
+    internal static void Validate(StringSegment label)
     {
         if (label.Length > MaxLength)
             throw new ArgumentException("Label length exceeds maximum length", nameof(label));
@@ -93,24 +92,6 @@ public readonly struct DnsLabel
     }
 
     public override string ToString() => ToString(default, default);
-
-    internal void Encode(ref DnsWriter writer)
-    {
-        writer.Write((byte)Length);
-        if (!IsEmpty)
-            Encoding.GetBytes(_label.AsSpan(), writer.ProvideBufferAndAdvance(Length));
-    }
-
-    internal static DnsLabel Decode(ref DnsReader reader)
-    {
-        var length = reader.Read<byte>();
-        if (length == 0)
-            return Empty;
-
-        var labelStr = Encoding.GetString(reader.Read(length));
-        Validate(labelStr);
-        return new DnsLabel(labelStr);
-    }
 
     public override bool Equals(object? obj) => obj is DnsLabel label && Equals(label);
 
