@@ -1,6 +1,6 @@
 ﻿using System;
 
-using DnsCore.Encoding;
+using DnsCore.IO;
 
 namespace DnsCore.Model;
 

@@ -1,7 +1,7 @@
 using System;
 using System.Numerics;
 
-using DnsCore.Encoding;
+using DnsCore.IO;
 
 using Microsoft.Extensions.Primitives;
 

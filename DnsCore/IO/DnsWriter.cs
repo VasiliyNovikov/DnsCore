@@ -4,7 +4,7 @@ using System.Numerics;
 
 using DnsCore.Model;
 
-namespace DnsCore.Encoding;
+namespace DnsCore.IO;
 
 internal ref struct DnsWriter(Span<byte> buffer)
 {
