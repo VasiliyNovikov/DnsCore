@@ -2,13 +2,13 @@ using System;
 
 namespace DnsCore.Common;
 
-internal sealed class DnsTransportMessage(byte[] buffer, int length, bool ownsBuffer = true) : IDisposable
+internal sealed class DnsTransportMessage(DnsTransportBuffer buffer, bool ownsBuffer = true) : IDisposable
 {
-    public ReadOnlyMemory<byte> Buffer => buffer.AsMemory(0, length);
+    public DnsTransportBuffer Buffer { get; } = ownsBuffer ? buffer.Move() : buffer;
 
     public void Dispose()
     {
         if (ownsBuffer)
-            DnsBufferPool.Return(buffer);
+            Buffer.Dispose();
     }
 }

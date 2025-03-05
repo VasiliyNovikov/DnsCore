@@ -11,23 +11,23 @@ internal ref struct DnsWriter(Span<byte> buffer)
     private readonly Span<byte> _buffer = buffer;
     private readonly Dictionary<DnsName, int> _offsets = new(1);
 
-    public int Position { get; private set; }
+    public ushort Position { get; private set; }
 
-    public void Write<TInt>(TInt value) where TInt : unmanaged, IBinaryInteger<TInt> => Position += value.WriteBigEndian(_buffer[Position..]);
+    public void Write<TInt>(TInt value) where TInt : unmanaged, IBinaryInteger<TInt> => Position += (ushort)value.WriteBigEndian(_buffer[Position..]);
 
     public void Write(ReadOnlySpan<byte> value)
     {
         value.CopyTo(_buffer[Position..]);
-        Position += value.Length;
+        Position += (ushort)value.Length;
     }
 
-    public Span<byte> ProvideBufferAndAdvance(int length)
+    public Span<byte> ProvideBufferAndAdvance(ushort length)
     {
         var oldPosition = Position;
         var newPosition = oldPosition + length;
         ArgumentOutOfRangeException.ThrowIfGreaterThan(newPosition, _buffer.Length, nameof(length));
 
-        Position = newPosition;
+        Position = (ushort)newPosition;
         return _buffer[oldPosition..newPosition];
     }
 

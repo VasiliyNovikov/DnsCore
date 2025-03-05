@@ -7,7 +7,7 @@ namespace DnsCore.Model.Encoding;
 
 internal static class DnsRawMessageEncoder
 {
-    public static int Encode(Span<byte> buffer, DnsRawMessage message)
+    public static ushort Encode(Span<byte> buffer, DnsRawMessage message)
     {
         var writer = new DnsWriter(buffer);
         Encode(ref writer, message);
