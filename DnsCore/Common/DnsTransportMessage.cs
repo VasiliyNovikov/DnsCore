@@ -2,13 +2,8 @@ using System;
 
 namespace DnsCore.Common;
 
-internal sealed class DnsTransportMessage(DnsTransportBuffer buffer, bool ownsBuffer = true) : IDisposable
+internal sealed class DnsTransportMessage(DnsTransportBuffer buffer) : IDisposable
 {
-    public DnsTransportBuffer Buffer { get; } = ownsBuffer ? buffer.Move() : buffer;
-
-    public void Dispose()
-    {
-        if (ownsBuffer)
-            Buffer.Dispose();
-    }
+    public DnsTransportBuffer Buffer { get; } = buffer.Move();
+    public void Dispose() => Buffer.Dispose();
 }

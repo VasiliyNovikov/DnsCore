@@ -1,11 +1,11 @@
-﻿using System.Collections.Generic;
-using System.Threading;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 
 namespace DnsCore.Server;
 
-internal sealed class ServerTaskManager
+internal sealed class ServerTaskManager : IAsyncDisposable
 {
     private readonly Channel<Task> _tasks = Channel.CreateUnbounded<Task>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
 
@@ -13,7 +13,7 @@ internal sealed class ServerTaskManager
 
     public void CompleteAdding() => _tasks.Writer.TryComplete();
 
-    public async Task Wait()
+    public async ValueTask DisposeAsync()
     {
         var waitForMoreTasks = _tasks.Reader.WaitToReadAsync().AsTask();
         List<Task> pendingTasks = [waitForMoreTasks];
