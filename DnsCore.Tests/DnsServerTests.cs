@@ -91,7 +91,7 @@ public class DnsServerTests
             : await ResolveUnix(name, type, useTcp);
     }
 
-    private sealed record PowerShellDnsRecord(string Name, DnsRecordType Type, int TTL, string? Address, string? NameHost);
+    private sealed record PowerShellDnsRecord(string Name, DnsRecordType Type, int TTL, string? Address, string? NameHost, string[] Strings);
     private static async Task<List<DnsRecord>> ResolveWindows(string name, DnsRecordType type, bool useTcp)
     {
         string output;
@@ -126,7 +126,7 @@ public class DnsServerTests
                     result.Add(new DnsPtrRecord(recordName, DnsName.Parse(powerShellRecord.NameHost!), ttl));
                     break;
                 case DnsRecordType.TXT:
-                    result.Add(new DnsTextRecord(recordName, powerShellRecord.NameHost!.Replace("\" \"", "").Replace("\"", ""), ttl));
+                    result.Add(new DnsTextRecord(recordName, String.Join("", powerShellRecord.Strings), ttl));
                     break;
             }
         }
