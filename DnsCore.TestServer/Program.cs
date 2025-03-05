@@ -21,7 +21,8 @@ var records = new DnsRecord[]
 {
     new DnsCNameRecord(DnsName.Parse("example.com"), DnsName.Parse("www.example.com"), TimeSpan.FromSeconds(24)),
     new DnsAddressRecord(DnsName.Parse("www.example.com"), IPAddress.Parse("1.2.3.4"), TimeSpan.FromSeconds(42)),
-    new DnsAddressRecord(DnsName.Parse("www.example.com"), IPAddress.Parse("::1:2:3:4"), TimeSpan.FromSeconds(4242))
+    new DnsAddressRecord(DnsName.Parse("www.example.com"), IPAddress.Parse("::1:2:3:4"), TimeSpan.FromSeconds(4242)),
+    new DnsTextRecord(DnsName.Parse("www.example.com"), "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.", TimeSpan.FromSeconds(424242))
 };
 
 Console.WriteLine("Test DNS server");

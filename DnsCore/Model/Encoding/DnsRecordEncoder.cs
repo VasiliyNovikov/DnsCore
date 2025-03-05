@@ -1,7 +1,5 @@
 using System;
 using System.Buffers.Binary;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 
 using DnsCore.IO;
 using DnsCore.Model.Encoding.Data;
@@ -11,21 +9,22 @@ namespace DnsCore.Model.Encoding;
 internal static class DnsRecordEncoder
 {
     private static readonly DnsRecordDataEncoder DefaultEncoder;
-    private static readonly ConcurrentDictionary<DnsRecordType, DnsRecordDataEncoder> Encoders;
+    private static readonly DnsRecordDataEncoder?[] Encoders;
 
     static DnsRecordEncoder()
     {
         DefaultEncoder = DnsRecordRawDataEncoder.Instance;
-        Encoders = new();
+        Encoders = new DnsRecordDataEncoder?[UInt16.MaxValue + 1];
         RegisterTypeEncoder(DnsRecordType.A, DnsRecordAddressDataEncoder.Instance);
         RegisterTypeEncoder(DnsRecordType.AAAA, DnsRecordAddressDataEncoder.Instance);
         RegisterTypeEncoder(DnsRecordType.CNAME, DnsRecordCNameDataEncoder.Instance);
         RegisterTypeEncoder(DnsRecordType.PTR, DnsRecordPtrDataEncoder.Instance);
+        RegisterTypeEncoder(DnsRecordType.TXT, DnsRecordTextDataEncoder.Instance);
     }
 
-    public static void RegisterTypeEncoder(DnsRecordType type, DnsRecordDataEncoder encoder) => Encoders[type] = encoder;
+    public static void RegisterTypeEncoder(DnsRecordType type, DnsRecordDataEncoder encoder) => Encoders[(ushort)type] = encoder;
 
-    private static DnsRecordDataEncoder GetEncoder(DnsRecordType type) => Encoders.GetValueOrDefault(type, DefaultEncoder);
+    private static DnsRecordDataEncoder GetEncoder(DnsRecordType type) => Encoders[(ushort)type] ?? DefaultEncoder;
 
     public static void Encode(ref DnsWriter writer, DnsRecord record)
     {
