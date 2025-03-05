@@ -80,16 +80,17 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         if (_started)
             throw new InvalidOperationException("Server is already running");
         _started = true;
+        if (_logger is not null)
+            LogStartedDnsServer(_logger, _endPoint, _transportType);
         try
         {
             var tasks = new ServerTaskManager();
-            var transport = DnsServerTransport.Create(_transportType, [_endPoint]);
-            await tasks.Add(AcceptConnections(tasks, transport, cancellationToken)).ConfigureAwait(false);
+            await using (tasks.ConfigureAwait(false))
+            {
+                var transport = DnsServerTransport.Create(_transportType, [_endPoint]);
+                await tasks.Add(AcceptConnections(tasks, transport, cancellationToken)).ConfigureAwait(false);
 
-            if (_logger is not null)
-                LogStartedDnsServer(_logger, _endPoint, _transportType);
-
-            await tasks.Wait().ConfigureAwait(false);
+            }
             cancellationToken.ThrowIfCancellationRequested();
         }
         catch (OperationCanceledException)
@@ -110,10 +111,9 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
 
     private async Task AcceptConnections(ServerTaskManager tasks, DnsServerTransport serverTransport, CancellationToken cancellationToken)
     {
-        await using (serverTransport.ConfigureAwait(false))
+        try
         {
-            try
-            {
+            await using (serverTransport.ConfigureAwait(false))
                 while (true)
                 {
                     try
@@ -127,11 +127,10 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
                             LogErrorReceivingDnsRequest(_logger, e);
                     }
                 }
-            }
-            finally
-            {
-                tasks.CompleteAdding();
-            }
+        }
+        finally
+        {
+            tasks.CompleteAdding();
         }
     }
 
@@ -141,83 +140,51 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         {
             while (true)
             {
-                DnsTransportMessage? transportRequest;
-                try
-                {
-                    transportRequest = await connection.Receive(cancellationToken).ConfigureAwait(false);
-                }
-                catch (DnsServerTransportException e)
-                {
-                    if (_logger is not null)
-                        LogErrorReceivingDnsRequest(_logger, e);
-                    continue;
-                }
-
-                if (transportRequest is null)
-                    break;
-
-                DnsRequest request;
-                try
-                {
-                    using (transportRequest)
-                        request = DnsRequestEncoder.Decode(transportRequest.Buffer.Span);
-                }
-                catch (FormatException e)
-                {
-                    if (_logger != null)
-                        LogErrorDecodingDnsRequest(_logger, e, connection.RemoteEndPoint, connection.TransportType);
-                    continue;
-                }
+                var request = await ReceiveRequest(connection, cancellationToken).ConfigureAwait(false);
+                if (request is null)
+                    return;
                 await HandleRequest(connection, request, cancellationToken).ConfigureAwait(false);
             }
         }
     }
 
-    private async Task HandleRequest(DnsServerTransportConnection connection, DnsRequest request, CancellationToken cancellationToken)
+    private async ValueTask<DnsTransportMessage?> ReceiveTransportRequest(DnsServerTransportConnection connection, CancellationToken cancellationToken)
     {
-        await Task.Yield();
-        var response = await InvokeRequestHandler(connection, request, cancellationToken).ConfigureAwait(false);
-        var bufferSize = connection.DefaultMessageSize;
-        using var buffer = new DnsTransportBuffer();
         try
         {
-            while (true)
-            {
-                buffer.Resize(bufferSize);
-                try
-                {
-                    var length = DnsResponseEncoder.Encode(buffer.Span, response);
-                    buffer.Resize(length);
-                    using var responseMessage = new DnsTransportMessage(buffer, false);
-                    await connection.Send(responseMessage, cancellationToken).ConfigureAwait(false);
-                    return;
-                }
-                catch (FormatException) // Insufficient buffer size
-                {
-                    var newBufferSize = (ushort)Math.Min(bufferSize * 2, connection.MaxMessageSize);
-                    if (newBufferSize == bufferSize) // Max size reached
-                    {
-                        if (!response.Truncated)
-                        {
-                            if (_logger is not null)
-                                LogErrorDnsResponseTruncated(_logger, connection.RemoteEndPoint, connection.TransportType, response);
-
-                            response = request.Reply();
-                            response.Truncated = true;
-                        }
-                        else
-                            response.Questions.Clear();
-                    }
-                    else
-                        bufferSize = newBufferSize;
-                }
-            }
+            return await connection.Receive(cancellationToken).ConfigureAwait(false);
         }
         catch (DnsServerTransportException e)
         {
             if (_logger is not null)
-                LogErrorSendingDnsResponse(_logger, e, connection.RemoteEndPoint, connection.TransportType, response);
+                LogErrorReceivingDnsRequest(_logger, e);
+            return null;
         }
+    }
+
+    private async ValueTask<DnsRequest?> ReceiveRequest(DnsServerTransportConnection connection, CancellationToken cancellationToken)
+    {
+        var transportRequest = await ReceiveTransportRequest(connection, cancellationToken).ConfigureAwait(false);
+        if (transportRequest is null)
+            return null;
+
+        try
+        {
+            using (transportRequest)
+                return DnsRequestEncoder.Decode(transportRequest.Buffer.Span);
+        }
+        catch (FormatException e)
+        {
+            if (_logger != null)
+                LogErrorDecodingDnsRequest(_logger, e, connection.RemoteEndPoint, connection.TransportType);
+            return null;
+        }
+    }
+
+    private async Task HandleRequest(DnsServerTransportConnection connection, DnsRequest request, CancellationToken cancellationToken)
+    {
+        var response = await InvokeRequestHandler(connection, request, cancellationToken).ConfigureAwait(false);
+        await SendResponse(connection, request, response, cancellationToken).ConfigureAwait(false);
     }
 
     private async ValueTask<DnsResponse> InvokeRequestHandler(DnsServerTransportConnection connection, DnsRequest request, CancellationToken cancellationToken)
@@ -239,6 +206,55 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         if (_logger is not null)
             LogDnsResponse(_logger, connection.RemoteEndPoint, connection.TransportType, response);
         return response;
+    }
+
+    private DnsTransportMessage EncodeResponse(DnsServerTransportConnection connection, DnsRequest request, DnsResponse response)
+    {
+        var bufferSize = connection.DefaultMessageSize;
+        using var buffer = new DnsTransportBuffer();
+        while (true)
+        {
+            buffer.Resize(bufferSize);
+            try
+            {
+                var length = DnsResponseEncoder.Encode(buffer.Span, response);
+                buffer.Resize(length);
+                return new DnsTransportMessage(buffer);
+            }
+            catch (FormatException) // Insufficient buffer size
+            {
+                var newBufferSize = (ushort)Math.Min(bufferSize * 2, connection.MaxMessageSize);
+                if (newBufferSize == bufferSize) // Max size reached
+                {
+                    if (!response.Truncated)
+                    {
+                        if (_logger is not null)
+                            LogErrorDnsResponseTruncated(_logger, connection.RemoteEndPoint, connection.TransportType, response);
+
+                        response = request.Reply();
+                        response.Truncated = true;
+                    }
+                    else
+                        response.Questions.Clear();
+                }
+                else
+                    bufferSize = newBufferSize;
+            }
+        }
+    }
+
+    private async ValueTask SendResponse(DnsServerTransportConnection connection, DnsRequest request, DnsResponse response, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var responseMessage = EncodeResponse(connection, request, response);
+            await connection.Send(responseMessage, cancellationToken).ConfigureAwait(false);
+        }
+        catch (DnsServerTransportException e)
+        {
+            if (_logger is not null)
+                LogErrorSendingDnsResponse(_logger, e, connection.RemoteEndPoint, connection.TransportType, response);
+        }
     }
 
     #region Logging
