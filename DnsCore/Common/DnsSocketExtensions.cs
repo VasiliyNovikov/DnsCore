@@ -13,7 +13,7 @@ internal static class DnsSocketExtensions
     {
         try
         {
-            await socket.SendToAsync(message.Buffer, SocketFlags.None, remoteEndPoint, cancellationToken).ConfigureAwait(false);
+            await socket.SendToAsync(message.Buffer.Memory, SocketFlags.None, remoteEndPoint, cancellationToken).ConfigureAwait(false);
         }
         catch (SocketException e)
         {
@@ -23,83 +23,78 @@ internal static class DnsSocketExtensions
 
     public static async ValueTask<(EndPoint RemoteEndPoint, DnsTransportMessage Message)> ReceiveUdpMessageFrom(this Socket socket, EndPoint remoteEndPoint, CancellationToken cancellationToken)
     {
-        var buffer = DnsBufferPool.Rent(DnsDefaults.MaxUdpMessageSize);
+        using var buffer = new DnsTransportBuffer(DnsDefaults.MaxUdpMessageSize);
         try
         {
-            var result = await socket.ReceiveFromAsync(buffer, SocketFlags.None, remoteEndPoint, cancellationToken).ConfigureAwait(false);
-            return (result.RemoteEndPoint, new DnsTransportMessage(buffer, result.ReceivedBytes));
+            var result = await socket.ReceiveFromAsync(buffer.Memory, SocketFlags.None, remoteEndPoint, cancellationToken).ConfigureAwait(false);
+            buffer.Resize((ushort)result.ReceivedBytes);
+            return (result.RemoteEndPoint, new DnsTransportMessage(buffer));
         }
         catch (SocketException e)
         {
-            DnsBufferPool.Return(buffer);
             throw new DnsSocketException(e.Message, e);
         }
     }
 
-    public static async ValueTask SendTcpMessage(this Socket socket, DnsTransportMessage message, CancellationToken cancellationToken)
+    private static async ValueTask SendExactly(this Socket socket, ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken)
     {
-        var lengthBuffer = DnsBufferPool.Rent(2);
-        try
-        {
-            var lengthBufferMem = lengthBuffer.AsMemory(0, 2);
-            var buffer = message.Buffer;
-            BinaryPrimitives.WriteUInt16BigEndian(lengthBufferMem.Span, (ushort)buffer.Length);
-            await socket.SendAsync(lengthBufferMem, SocketFlags.None, cancellationToken).ConfigureAwait(false);
-            while (!buffer.IsEmpty)
+        while (!buffer.IsEmpty)
+            try
             {
                 var sentBytes = await socket.SendAsync(buffer, SocketFlags.None, cancellationToken).ConfigureAwait(false);
                 buffer = buffer[sentBytes..];
             }
-        }
-        catch (SocketException e)
+            catch (SocketException e)
+            {
+                throw new DnsSocketException(e.Message, e);
+            }
+    }
+
+    public static async ValueTask SendTcpMessage(this Socket socket, DnsTransportMessage message, CancellationToken cancellationToken)
+    {
+        using var lengthBuffer = new DnsTransportBuffer(2);
+        var messageBuffer = message.Buffer;
+        BinaryPrimitives.WriteUInt16BigEndian(lengthBuffer.Span, messageBuffer.Length);
+        await socket.SendExactly(lengthBuffer.Memory, cancellationToken).ConfigureAwait(false);
+        await socket.SendExactly(messageBuffer.Memory, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async ValueTask<bool> ReceiveExactly(this Socket socket, Memory<byte> buffer, CancellationToken cancellationToken)
+    {
+        var totalReceivedBytes = 0;
+        while (!buffer.IsEmpty)
         {
-            throw new DnsSocketException(e.Message, e);
+            int receivedBytes;
+            try
+            {
+                receivedBytes = await socket.ReceiveAsync(buffer, SocketFlags.None, cancellationToken).ConfigureAwait(false);
+            }
+            catch (SocketException e)
+            {
+                throw new DnsSocketException(e.Message, e);
+            }
+            if (receivedBytes == 0)
+                return totalReceivedBytes == 0 ? false : throw new DnsSocketException("Failed to receive message");
+            buffer = buffer[receivedBytes..];
+            totalReceivedBytes += receivedBytes;
         }
-        finally
-        {
-            DnsBufferPool.Return(lengthBuffer);
-        }
+        return true;
     }
 
     public static async ValueTask<DnsTransportMessage?> ReceiveTcpMessage(this Socket socket, CancellationToken cancellationToken)
     {
-        var lengthBuffer = DnsBufferPool.Rent(2);
-        byte[]? requestBuffer = null;
-        try
-        {
-            var lengthBufferMem = lengthBuffer.AsMemory(0, 2);
-            var receivedBytes = await socket.ReceiveAsync(lengthBufferMem, SocketFlags.None, cancellationToken).ConfigureAwait(false);
-            if (receivedBytes == 0)
-                return null;
+        using var lengthBuffer = new DnsTransportBuffer(2);
+        using var requestBuffer = new DnsTransportBuffer();
+        if (!await socket.ReceiveExactly(lengthBuffer.Memory, cancellationToken).ConfigureAwait(false))
+            return null;
 
-            var length = BinaryPrimitives.ReadUInt16BigEndian(lengthBufferMem.Span);
-            if (length == 0)
-                throw new DnsSocketException("Received message length is zero");
+        var length = BinaryPrimitives.ReadUInt16BigEndian(lengthBuffer.Span);
+        if (length == 0)
+            throw new DnsSocketException("Received message length is zero");
 
-            requestBuffer = DnsBufferPool.Rent(length);
-            var totalReceivedBytes = 0;
-            while (totalReceivedBytes < length)
-            {
-                receivedBytes = await socket.ReceiveAsync(requestBuffer.AsMemory(totalReceivedBytes, length - totalReceivedBytes), SocketFlags.None, cancellationToken).ConfigureAwait(false);
-                if (receivedBytes == 0)
-                {
-                    DnsBufferPool.Return(requestBuffer);
-                    throw new DnsSocketException("Failed to receive message");
-                }
-
-                totalReceivedBytes += receivedBytes;
-            }
-            return new DnsTransportMessage(requestBuffer, totalReceivedBytes);
-        }
-        catch (SocketException e)
-        {
-            if (requestBuffer is not null)
-                DnsBufferPool.Return(requestBuffer);
-            throw new DnsSocketException(e.Message, e);
-        }
-        finally
-        {
-            DnsBufferPool.Return(lengthBuffer);
-        }
+        requestBuffer.Resize(length);
+        return await socket.ReceiveExactly(requestBuffer.Memory, cancellationToken).ConfigureAwait(false)
+            ? new DnsTransportMessage(requestBuffer)
+            : throw new DnsSocketException("Failed to receive message");
     }
 }

@@ -39,12 +39,12 @@ internal static class DnsNameEncoder
             if (!canStartWithCompression)
                 throw new FormatException("DNS name compression pointer can't point to another pointer");
 
-            var offset = reader.Read<ushort>() & OffsetMaskInverted;
+            var offset = (ushort)(reader.Read<ushort>() & OffsetMaskInverted);
             if (!reader.GetNameByOffset(offset, out var name))
             {
                 var offsetReader = reader.GetSubReader(offset);
                 name = DecodeInternal(ref offsetReader, maxLength, false);
-                reader.AddNameOffset(name, offset);
+                reader.AddNameOffset(offset, name);
             }
             return name;
         }
@@ -57,7 +57,7 @@ internal static class DnsNameEncoder
 
             var parent = DecodeInternal(ref reader, maxLength - label.Length - 1);
             var name = new DnsName(label, parent);
-            reader.AddNameOffset(name, offset);
+            reader.AddNameOffset(offset, name);
             return name;
         }
     }

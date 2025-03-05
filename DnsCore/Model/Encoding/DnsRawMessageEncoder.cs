@@ -7,7 +7,7 @@ namespace DnsCore.Model.Encoding;
 
 internal static class DnsRawMessageEncoder
 {
-    public static int Encode(Span<byte> buffer, DnsRawMessage message)
+    public static ushort Encode(Span<byte> buffer, DnsRawMessage message)
     {
         var writer = new DnsWriter(buffer);
         Encode(ref writer, message);
@@ -27,6 +27,10 @@ internal static class DnsRawMessageEncoder
         catch (ArgumentOutOfRangeException e)
         {
             throw new FormatException("Invalid DNS message: buffer is too short", e);
+        }
+        catch (OverflowException e)
+        {
+            throw new FormatException($"Invalid DNS message: {e.Message}", e);
         }
         catch (ArgumentException e)
         {

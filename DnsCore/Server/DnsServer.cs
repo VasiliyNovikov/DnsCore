@@ -178,15 +178,17 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         await Task.Yield();
         var response = await InvokeRequestHandler(connection, request, cancellationToken).ConfigureAwait(false);
         var bufferSize = connection.DefaultMessageSize;
-        var buffer = DnsBufferPool.Rent(bufferSize);
+        using var buffer = new DnsTransportBuffer();
         try
         {
             while (true)
             {
+                buffer.Resize(bufferSize);
                 try
                 {
-                    var length = DnsResponseEncoder.Encode(buffer, response);
-                    using var responseMessage = new DnsTransportMessage(buffer, length, false);
+                    var length = DnsResponseEncoder.Encode(buffer.Span, response);
+                    buffer.Resize(length);
+                    using var responseMessage = new DnsTransportMessage(buffer, false);
                     await connection.Send(responseMessage, cancellationToken).ConfigureAwait(false);
                     return;
                 }
@@ -207,10 +209,7 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
                             response.Questions.Clear();
                     }
                     else
-                    {
                         bufferSize = newBufferSize;
-                        DnsBufferPool.Resize(ref buffer, bufferSize);
-                    }
                 }
             }
         }
@@ -218,10 +217,6 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         {
             if (_logger is not null)
                 LogErrorSendingDnsResponse(_logger, e, connection.RemoteEndPoint, connection.TransportType, response);
-        }
-        finally
-        {
-            DnsBufferPool.Return(buffer);
         }
     }
 
