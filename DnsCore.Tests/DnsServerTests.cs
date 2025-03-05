@@ -79,6 +79,9 @@ public class DnsServerTests
                                        new DnsCNameRecord(DnsName.Parse("alias.example.com"), DnsName.Parse("host.example.com"), TimeSpan.FromSeconds(42)));
         await Do_Test_Request_Response(transportType,
                                        new(DnsName.Parse("unknown.example.com"), DnsRecordType.A));
+        await Do_Test_Request_Response(transportType,
+                                       new(DnsName.Parse("txt.example.com"), DnsRecordType.TXT),
+                                       new DnsTextRecord(DnsName.Parse("txt.example.com"), "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.", TimeSpan.FromSeconds(42)));
     }
 
     private static async Task<List<DnsRecord>> Resolve(string name, DnsRecordType type, bool useTcp)
@@ -122,6 +125,9 @@ public class DnsServerTests
                 case DnsRecordType.PTR:
                     result.Add(new DnsPtrRecord(recordName, DnsName.Parse(powerShellRecord.NameHost!), ttl));
                     break;
+                case DnsRecordType.TXT:
+                    result.Add(new DnsTextRecord(recordName, powerShellRecord.NameHost!.Replace("\" \"", "").Replace("\"", ""), ttl));
+                    break;
             }
         }
         return result;
@@ -150,6 +156,9 @@ public class DnsServerTests
                     break;
                 case DnsRecordType.PTR:
                     result.Add(new DnsPtrRecord(recordName, DnsName.Parse(answerStr), ttl));
+                    break;
+                case DnsRecordType.TXT:
+                    result.Add(new DnsTextRecord(recordName, answerStr.Replace("\" \"", "").Replace("\"", ""), ttl));
                     break;
             }
         }

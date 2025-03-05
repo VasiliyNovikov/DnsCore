@@ -1,5 +1,6 @@
 using System;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 
 using Microsoft.Extensions.Primitives;
 
@@ -90,6 +91,7 @@ public sealed class DnsName
         return false;
     }
 
+    [SkipLocalsInit]
     public string ToString(string? format, IFormatProvider? formatProvider)
     {
         Span<char> buffer = stackalloc char[Length];

@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <Import Project="../DnsCore.targets" />
   <PropertyGroup>
-    <Version>0.1.23</Version>
+    <Version>0.1.24</Version>
     <PackageVersion>$(Version)$(VersionSuffix)</PackageVersion>
     <Authors>Vasyl Novikov</Authors>
     <Description>.NET lightweight DNS server &amp; client</Description>
@@ -13,6 +13,7 @@
     <RepositoryType>Git</RepositoryType>
     <PackageTags>dns</PackageTags>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
