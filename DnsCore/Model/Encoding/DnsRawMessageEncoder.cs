@@ -28,6 +28,10 @@ internal static class DnsRawMessageEncoder
         {
             throw new FormatException("Invalid DNS message: buffer is too short", e);
         }
+        catch (OverflowException e)
+        {
+            throw new FormatException($"Invalid DNS message: {e.Message}", e);
+        }
         catch (ArgumentException e)
         {
             throw new FormatException($"Invalid DNS message: {e.Message}", e);
