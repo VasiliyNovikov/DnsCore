@@ -10,6 +10,7 @@ internal abstract class DnsServerSocketTransport : DnsServerTransport
     protected Socket Socket { get; }
 
     protected DnsServerSocketTransport(EndPoint endPoint, SocketType socketType, ProtocolType protocolType)
+        : base(endPoint)
     {
         Socket = new Socket(endPoint.AddressFamily, socketType, protocolType);
         Socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);

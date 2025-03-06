@@ -3,10 +3,14 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
+using DnsCore.Common;
+
 namespace DnsCore.Server.Transport.Tcp;
 
 internal sealed class DnsTcpServerTransport : DnsServerSocketTransport
 {
+    public override DnsTransportType Type => DnsTransportType.TCP;
+
     public DnsTcpServerTransport(EndPoint endPoint)
         : base(endPoint, SocketType.Stream, ProtocolType.Tcp)
     {

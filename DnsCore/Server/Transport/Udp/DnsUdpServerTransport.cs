@@ -11,6 +11,8 @@ internal sealed class DnsUdpServerTransport(EndPoint endPoint) : DnsServerSocket
 {
     private readonly IPEndPoint _remoteEndPointPlaceholder = new(endPoint.AddressFamily == AddressFamily.InterNetwork ? IPAddress.Any : IPAddress.IPv6Any, 0);
 
+    public override DnsTransportType Type => DnsTransportType.UDP;
+
     public override async ValueTask<DnsServerTransportConnection> Accept(CancellationToken cancellationToken)
     {
         try
