@@ -7,6 +7,7 @@ using DnsCore.Common;
 using DnsCore.Model;
 using DnsCore.Model.Encoding;
 using DnsCore.Server.Transport;
+using DnsCore.Utils;
 
 using Microsoft.Extensions.Logging;
 
@@ -14,7 +15,7 @@ namespace DnsCore.Server;
 
 public sealed partial class DnsServer : IDisposable, IAsyncDisposable
 {
-    private readonly EndPoint _endPoint;
+    private readonly EndPoint[] _endPoints;
     private readonly DnsTransportType _transportType;
     private readonly Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> _handler;
     private readonly ILogger? _logger;
@@ -23,12 +24,23 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
     private Task? _runTask;
     private CancellationTokenSource? _runCancellation;
 
+    public DnsServer(EndPoint[] endPoints, DnsTransportType transportType, Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, ILogger? logger = null)
+    {
+        ArgumentNullException.ThrowIfNull(endPoints);
+        ArgumentNullException.ThrowIfNull(handler);
+
+        _endPoints = endPoints;
+        _transportType = transportType;
+        _handler = handler;
+        _logger = logger;
+    }
+
     public DnsServer(EndPoint endPoint, DnsTransportType transportType, Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, ILogger? logger = null)
     {
         ArgumentNullException.ThrowIfNull(endPoint);
         ArgumentNullException.ThrowIfNull(handler);
 
-        _endPoint = endPoint;
+        _endPoints = [endPoint];
         _transportType = transportType;
         _handler = handler;
         _logger = logger;
@@ -81,17 +93,15 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
             throw new InvalidOperationException("Server is already running");
         _started = true;
         if (_logger is not null)
-            LogStartedDnsServer(_logger, _endPoint, _transportType);
+            LogStartedDnsServer(_logger, _transportType);
         try
         {
-            var tasks = new ServerTaskManager();
-            await using (tasks.ConfigureAwait(false))
+            await ServerTaskScheduler.Run(async (scheduler, _) =>
             {
-                var transport = DnsServerTransport.Create(_transportType, [_endPoint]);
-                await tasks.Add(AcceptConnections(tasks, transport, cancellationToken)).ConfigureAwait(false);
-
-            }
-            cancellationToken.ThrowIfCancellationRequested();
+                foreach (var transport in DnsServerTransport.Create(_transportType, _endPoints))
+                    scheduler.Enqueue(async (s, ct) => await AcceptConnections(s, transport, ct));
+                await Task.CompletedTask.ConfigureAwait(false);
+            }, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -100,37 +110,35 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         catch (Exception e)
         {
             if (_logger is not null)
-                LogErrorRunningDnsServer(_logger, e, _endPoint);
+                LogErrorRunningDnsServer(_logger, e, _transportType);
         }
         finally
         {
             if (_logger is not null)
-                LogStoppedDnsServer(_logger, _endPoint, _transportType);
+                LogStoppedDnsServer(_logger, _transportType);
         }
     }
 
-    private async Task AcceptConnections(ServerTaskManager tasks, DnsServerTransport serverTransport, CancellationToken cancellationToken)
+    private async Task AcceptConnections(ServerTaskScheduler scheduler, DnsServerTransport serverTransport, CancellationToken cancellationToken)
     {
-        try
+        await using (serverTransport.ConfigureAwait(false))
         {
-            await using (serverTransport.ConfigureAwait(false))
-                while (true)
+            if (_logger is not null)
+                LogAcceptingConnections(_logger, serverTransport.EndPoint, serverTransport.Type);
+
+            while (true)
+            {
+                try
                 {
-                    try
-                    {
-                        var connection = await serverTransport.Accept(cancellationToken).ConfigureAwait(false);
-                        await tasks.Add(ProcessRequests(connection, cancellationToken)).ConfigureAwait(false);
-                    }
-                    catch (DnsServerTransportException e)
-                    {
-                        if (_logger is not null)
-                            LogErrorReceivingDnsRequest(_logger, e);
-                    }
+                    var connection = await serverTransport.Accept(cancellationToken).ConfigureAwait(false);
+                    scheduler.Enqueue(async (_, ct) => await ProcessRequests(connection, ct));
                 }
-        }
-        finally
-        {
-            tasks.CompleteAdding();
+                catch (DnsServerTransportException e)
+                {
+                    if (_logger is not null)
+                        LogErrorReceivingDnsRequest(_logger, e);
+                }
+            }
         }
     }
 
@@ -259,11 +267,14 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
 
     #region Logging
 
-    [LoggerMessage(LogLevel.Debug, "Started DNS server on {EndPoint} {TransportType}")]
-    private static partial void LogStartedDnsServer(ILogger logger, EndPoint endPoint, DnsTransportType transportType);
+    [LoggerMessage(LogLevel.Debug, "Started DNS server on {TransportType}")]
+    private static partial void LogStartedDnsServer(ILogger logger, DnsTransportType transportType);
 
-    [LoggerMessage(LogLevel.Debug, "Stopped DNS server on {EndPoint} {TransportType}")]
-    private static partial void LogStoppedDnsServer(ILogger logger, EndPoint endPoint, DnsTransportType transportType);
+    [LoggerMessage(LogLevel.Debug, "Stopped DNS server on {TransportType}")]
+    private static partial void LogStoppedDnsServer(ILogger logger, DnsTransportType transportType);
+
+    [LoggerMessage(LogLevel.Debug, "Accepting connections on {EndPoint} {TransportType}")]
+    private static partial void LogAcceptingConnections(ILogger logger, EndPoint endPoint, DnsTransportType transportType);
 
     [LoggerMessage(LogLevel.Error, "Error receiving DNS request")]
     private static partial void LogErrorReceivingDnsRequest(ILogger logger, Exception e);
@@ -277,8 +288,8 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
     [LoggerMessage(LogLevel.Error, "Truncated DNS response to {RemoteEndPoint} {TransportType}:\n{Response}")]
     private static partial void LogErrorDnsResponseTruncated(ILogger logger, EndPoint remoteEndPoint, DnsTransportType transportType, DnsResponse response);
 
-    [LoggerMessage(LogLevel.Critical, "Error running DNS server on {EndPoint}")]
-    private static partial void LogErrorRunningDnsServer(ILogger logger, Exception e, EndPoint endPoint);
+    [LoggerMessage(LogLevel.Critical, "Error running DNS server on {TransportType}")]
+    private static partial void LogErrorRunningDnsServer(ILogger logger, Exception e, DnsTransportType transportType);
 
     [LoggerMessage(LogLevel.Debug, "Received DNS request from {RemoteEndPoint} {TransportType}:\n{Request}")]
     private static partial void LogDnsRequest(ILogger logger, EndPoint remoteEndPoint, DnsTransportType transportType, DnsRequest request);
