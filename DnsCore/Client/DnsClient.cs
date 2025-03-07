@@ -13,6 +13,8 @@ namespace DnsCore.Client;
 
 public sealed class DnsClient : IAsyncDisposable
 {
+    private const int DefaultRequestTimeoutMilliseconds = 5000;
+
     private readonly TimeSpan _requestTimeout;
     private readonly DnsClientTransport _transport;
     private readonly Dictionary<ushort, TaskCompletionSource<DnsResponse>> _pendingRequests = [];
@@ -27,11 +29,10 @@ public sealed class DnsClient : IAsyncDisposable
         _receiveTask = ReceiveResponses(_receiveTaskCancellation.Token);
     }
 
-    public DnsClient(DnsTransportType transportType, EndPoint serverEndPoint) : this(transportType, serverEndPoint, TimeSpan.FromSeconds(5)) {}
+    public DnsClient(DnsTransportType transportType, EndPoint serverEndPoint) : this(transportType, serverEndPoint, TimeSpan.FromMilliseconds(DefaultRequestTimeoutMilliseconds)) {}
     public DnsClient(DnsTransportType transportType, IPAddress serverAddress, ushort port, TimeSpan requestTimeout) : this(transportType, new IPEndPoint(serverAddress, port), requestTimeout) {}
-    public DnsClient(DnsTransportType transportType, IPAddress serverAddress, ushort port) : this(transportType, new IPEndPoint(serverAddress, port)) {}
+    public DnsClient(DnsTransportType transportType, IPAddress serverAddress, ushort port = DnsDefaults.Port) : this(transportType, new IPEndPoint(serverAddress, port)) {}
     public DnsClient(DnsTransportType transportType, IPAddress serverAddress, TimeSpan requestTimeout) : this(transportType, serverAddress, DnsDefaults.Port, requestTimeout) {}
-    public DnsClient(DnsTransportType transportType, IPAddress serverAddress) : this(transportType, serverAddress, DnsDefaults.Port) {}
 
     public async ValueTask DisposeAsync()
     {
@@ -44,12 +45,12 @@ public sealed class DnsClient : IAsyncDisposable
 
     public async ValueTask<DnsResponse> Query(DnsRequest request, CancellationToken cancellationToken = default)
     {
-        var responseCompletion = AddRequest(request.Id);
         using var timeoutCancellation = new CancellationTokenSource(_requestTimeout);
         using var aggregatedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCancellation.Token);
-        await using var cancellationRegistration = aggregatedCancellation.Token.Register(() => responseCompletion.TrySetCanceled()).ConfigureAwait(false);
+        var responseCompletion = AddRequest(request.Id);
         try
         {
+            await using var cancellationRegistration = aggregatedCancellation.Token.Register(() => responseCompletion.TrySetCanceled()).ConfigureAwait(false);
             await SendRequest(request, aggregatedCancellation.Token).ConfigureAwait(false);
             return await responseCompletion.Task.ConfigureAwait(false);
         }
