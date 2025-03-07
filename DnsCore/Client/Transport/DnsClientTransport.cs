@@ -22,7 +22,6 @@ internal abstract class DnsClientTransport : IAsyncDisposable
             case DnsTransportType.TCP:
                 return new DnsClientTcpTransport(endPoint);
             case DnsTransportType.All:
-                throw new NotImplementedException();
             default:
                 throw new ArgumentOutOfRangeException(nameof(type), type, null);
         }
