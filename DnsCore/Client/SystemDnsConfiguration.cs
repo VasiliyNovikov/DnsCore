@@ -6,11 +6,13 @@ namespace DnsCore.Client;
 
 public static class SystemDnsConfiguration
 {
-    public static IEnumerable<EndPoint> GetEndPoints()
+    public static IPAddress[] GetAddresses()
     {
+        HashSet<IPAddress> addresses = [];
         foreach (var @interface in NetworkInterface.GetAllNetworkInterfaces())
             if (@interface.OperationalStatus == OperationalStatus.Up)
-                foreach (var dnsAddress in @interface.GetIPProperties().DnsAddresses)
-                    yield return new IPEndPoint(dnsAddress, DnsDefaults.Port);
+                foreach (var address in @interface.GetIPProperties().DnsAddresses)
+                    addresses.Add(address);
+        return [.. addresses];
     }
 }
