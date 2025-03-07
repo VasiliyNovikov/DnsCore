@@ -1,5 +1,5 @@
 using System;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,12 +13,12 @@ namespace DnsCore.Client;
 
 public sealed class DnsClient : IAsyncDisposable
 {
+    private const int InitialRetryDelayMilliseconds = 250;
     private const int DefaultRequestTimeoutMilliseconds = 5000;
 
     private readonly TimeSpan _requestTimeout;
     private readonly DnsClientTransport _transport;
-    private readonly Dictionary<ushort, TaskCompletionSource<DnsResponse>> _pendingRequests = [];
-    private readonly ReaderWriterLockSlim _pendingRequestsLock = new();
+    private readonly ConcurrentDictionary<ushort, TaskCompletionSource<DnsResponse>> _pendingRequests = [];
     private readonly CancellationTokenSource _receiveTaskCancellation = new();
     private readonly Task _receiveTask;
 
@@ -40,7 +40,6 @@ public sealed class DnsClient : IAsyncDisposable
         await _receiveTask;
         _receiveTaskCancellation.Dispose();
         await _transport.DisposeAsync();
-        _pendingRequestsLock.Dispose();
     }
 
     public async ValueTask<DnsResponse> Query(DnsRequest request, CancellationToken cancellationToken = default)
@@ -90,44 +89,20 @@ public sealed class DnsClient : IAsyncDisposable
 
     private TaskCompletionSource<DnsResponse> AddRequest(ushort requestId)
     {
-        _pendingRequestsLock.EnterWriteLock();
-        try
-        {
-            var completion = new TaskCompletionSource<DnsResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
-            _pendingRequests[requestId] = completion;
-            return completion;
-        }
-        finally
-        {
-            _pendingRequestsLock.ExitWriteLock();
-        }
+        var completion = new TaskCompletionSource<DnsResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (!_pendingRequests.TryAdd(requestId, completion))
+            throw new DnsClientException("Request ID collision");
+        return completion;
     }
 
     private void RemoveRequest(ushort requestId, TaskCompletionSource<DnsResponse> completion)
     {
-        _pendingRequestsLock.EnterWriteLock();
-        try
-        {
-            if (_pendingRequests.TryGetValue(requestId, out var current) && current == completion)
-                _pendingRequests.Remove(requestId);
-        }
-        finally
-        {
-            _pendingRequestsLock.ExitWriteLock();
-        }
+        _pendingRequests.TryRemove(new(requestId, completion));
     }
 
     private void CompleteRequest(DnsResponse response)
     {
-        _pendingRequestsLock.EnterReadLock();
-        try
-        {
-            if (_pendingRequests.TryGetValue(response.Id, out var completion))
-                completion.TrySetResult(response);
-        }
-        finally
-        {
-            _pendingRequestsLock.ExitReadLock();
-        }
+        if (_pendingRequests.TryGetValue(response.Id, out var completion))
+            completion.TrySetResult(response);
     }
 }
