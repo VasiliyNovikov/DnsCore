@@ -15,6 +15,10 @@ namespace DnsCore.Server;
 
 public sealed partial class DnsServer : IDisposable, IAsyncDisposable
 {
+    private const int AcceptRetryInitialIntervalMilliseconds = 10;
+    private const int AcceptRetryTimeoutMilliseconds = 10000;
+    private const int AcceptRetryMaxIntervalMilliseconds = AcceptRetryTimeoutMilliseconds / 2;
+
     private readonly EndPoint[] _endPoints;
     private readonly DnsTransportType _transportType;
     private readonly Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> _handler;
@@ -96,11 +100,11 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
             LogStartedDnsServer(_logger, _transportType);
         try
         {
-            await ServerTaskScheduler.Run(async (scheduler, _) =>
+            await ServerTaskScheduler.Run(async (scheduler, ct) =>
             {
                 foreach (var transport in DnsServerTransport.Create(_transportType, _endPoints))
                     scheduler.Enqueue(async (s, ct) => await AcceptConnections(s, transport, ct));
-                await Task.CompletedTask.ConfigureAwait(false);
+                await Task.Delay(Timeout.Infinite, ct).ConfigureAwait(false);
             }, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
@@ -126,17 +130,33 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
             if (_logger is not null)
                 LogAcceptingConnections(_logger, serverTransport.EndPoint, serverTransport.Type);
 
+            var retryInterval = TimeSpan.Zero;
             while (true)
             {
                 try
                 {
                     var connection = await serverTransport.Accept(cancellationToken).ConfigureAwait(false);
+                    retryInterval = TimeSpan.Zero;
                     scheduler.Enqueue(async (_, ct) => await ProcessRequests(connection, ct));
                 }
                 catch (DnsServerTransportException e)
                 {
                     if (_logger is not null)
                         LogErrorReceivingDnsRequest(_logger, e);
+
+                    if (!e.IsTransient)
+                        throw;
+
+                    if (retryInterval == TimeSpan.Zero)
+                        retryInterval = TimeSpan.FromMilliseconds(AcceptRetryInitialIntervalMilliseconds);
+                    else
+                    {
+                        retryInterval *= 2;
+                        if (retryInterval > TimeSpan.FromMilliseconds(AcceptRetryMaxIntervalMilliseconds))
+                            throw;
+                    }
+
+                    await Task.Delay(retryInterval, cancellationToken);
                 }
             }
         }

@@ -97,4 +97,16 @@ internal static class DnsSocketExtensions
             ? new DnsTransportMessage(requestBuffer)
             : throw new DnsSocketException("Failed to receive message");
     }
+
+    public static async ValueTask<Socket> AcceptTcpSocket(this Socket socket, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await socket.AcceptAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (SocketException e)
+        {
+            throw new DnsSocketException(e.Message, e);
+        }
+    }
 }

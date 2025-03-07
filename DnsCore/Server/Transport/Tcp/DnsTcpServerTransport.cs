@@ -22,9 +22,9 @@ internal sealed class DnsTcpServerTransport : DnsServerSocketTransport
     {
         try
         {
-            return new DnsTcpServerTransportConnection(await Socket.AcceptAsync(cancellationToken).ConfigureAwait(false));
+            return new DnsTcpServerTransportConnection(await Socket.AcceptTcpSocket(cancellationToken).ConfigureAwait(false));
         }
-        catch (SocketException e)
+        catch (DnsSocketException e)
         {
             throw new DnsServerTransportException("Failed to accept a request connection", e);
         }
