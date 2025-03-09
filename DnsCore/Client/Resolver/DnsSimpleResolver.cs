@@ -1,7 +1,7 @@
-using System;
-using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -17,7 +17,8 @@ internal class DnsSimpleResolver : DnsResolver
     private readonly DnsClientTransport _transport;
     private readonly CancellationTokenSource _receiveTaskCancellation = new();
     private readonly Task _receiveTask;
-    private readonly ConcurrentDictionary<ushort, TaskCompletionSource<DnsResponse>> _pendingRequests = [];
+    private readonly Lock _lock = new();
+    private readonly Dictionary<ushort, TaskCompletionSource<DnsResponse>> _pendingRequests = [];
 
 
     public DnsSimpleResolver(DnsTransportType transportType, EndPoint endPoint)
@@ -28,25 +29,16 @@ internal class DnsSimpleResolver : DnsResolver
 
     public override async ValueTask<DnsResponse> Resolve(DnsRequest request, CancellationToken cancellationToken)
     {
-        var responseCompletion = new TaskCompletionSource<DnsResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
-        if (!_pendingRequests.TryAdd(request.Id, responseCompletion))
-            throw new DnsClientException("Request ID collision");
-
+        var responseCompletion = AddRequest(request.Id, out var exists);
         try
         {
-            try
-            {
-                await SendRequest(request, cancellationToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                responseCompletion.TrySetCanceled(cancellationToken);
-            }
-            return await responseCompletion.Task.ConfigureAwait(false);
+            await SendRequest(request, cancellationToken).ConfigureAwait(false);
+            return await responseCompletion.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
         }
         finally
         {
-            _pendingRequests.TryRemove(new(request.Id, responseCompletion));
+            if (!exists)
+                RemoveRequest(request.Id);
         }
     }
 
@@ -74,8 +66,25 @@ internal class DnsSimpleResolver : DnsResolver
         {
             using var responseMessage = await _transport.Receive(cancellationToken).ConfigureAwait(false);
             var response = DnsResponseEncoder.Decode(responseMessage.Buffer.Span);
-            if (_pendingRequests.TryGetValue(response.Id, out var completion))
-                completion.TrySetResult(response);
+            GetRequest(response.Id)?.TrySetResult(response);
         }
+    }
+
+    private TaskCompletionSource<DnsResponse> AddRequest(ushort id, out bool exists)
+    {
+        lock (_lock)
+            return CollectionsMarshal.GetValueRefOrAddDefault(_pendingRequests, id, out exists) ??= new TaskCompletionSource<DnsResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+
+    private TaskCompletionSource<DnsResponse>? GetRequest(ushort id)
+    {
+        lock (_lock)
+            return _pendingRequests.GetValueOrDefault(id);
+    }
+
+    private void RemoveRequest(ushort id)
+    {
+        lock (_lock)
+            _pendingRequests.Remove(id);
     }
 }

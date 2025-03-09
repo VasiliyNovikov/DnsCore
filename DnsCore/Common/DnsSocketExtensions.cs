@@ -38,7 +38,7 @@ internal static class DnsSocketExtensions
         using var buffer = new DnsTransportBuffer(DnsDefaults.MaxUdpMessageSize);
         try
         {
-            var receivedBytes = await socket.ReceiveAsync(buffer.Memory, SocketFlags.None, cancellationToken);
+            var receivedBytes = await socket.ReceiveAsync(buffer.Memory, SocketFlags.None, cancellationToken).ConfigureAwait(false);
             buffer.Resize((ushort)receivedBytes);
             return new DnsTransportMessage(buffer);
         }

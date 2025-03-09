@@ -46,14 +46,14 @@ public sealed class DnsClient : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        await _receiveTaskCancellation.CancelAsync();
-        await Task.WhenAll(_receiveTasks);
+        await _receiveTaskCancellation.CancelAsync().ConfigureAwait(false);
+        await Task.WhenAll(_receiveTasks).ConfigureAwait(false);
         _receiveTaskCancellation.Dispose();
         foreach (var transport in _defaultTransports)
-            await transport.DisposeAsync();
+            await transport.DisposeAsync().ConfigureAwait(false);
         if (_tcpTransports is not null)
             foreach (var transport in _tcpTransports)
-                await transport.DisposeAsync();
+                await transport.DisposeAsync().ConfigureAwait(false);
     }
 
     public async ValueTask<DnsResponse> Query(DnsRequest request, CancellationToken cancellationToken = default)
