@@ -40,13 +40,11 @@ internal static class DnsNameEncoder
                 throw new FormatException("DNS name compression pointer can't point to another pointer");
 
             var offset = (ushort)(reader.Read<ushort>() & OffsetMaskInverted);
-            if (!reader.GetNameByOffset(offset, out var name))
-            {
-                var offsetReader = reader.GetSubReader(offset);
-                name = DecodeInternal(ref offsetReader, maxLength, false);
-                reader.AddNameOffset(offset, name);
-            }
-            return name;
+            if (reader.GetNameByOffset(offset, out var name))
+                return name;
+
+            var offsetReader = reader.GetSubReader(offset);
+            return DecodeInternal(ref offsetReader, maxLength, false);
         }
         else
         {
