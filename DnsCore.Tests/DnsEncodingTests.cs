@@ -190,4 +190,11 @@ public class DnsEncodingTests
 
         Assert.ThrowsException<FormatException>(() => DnsRequestEncoder.Decode(messageMem.Span)); // Former implementation was throwing StackOverflowException
     }
+
+    [TestMethod]
+    public void Test_Decode_Edns_Record()
+    {
+        var packet = Convert.FromHexString("d04c01200001000000000001037765620b6e6574656d2d6275696c6403636f6d00001c000100002904d000000000000c000a0008505279e0dfd8968b");
+        DnsRequestEncoder.Decode(packet);
+    }
 }

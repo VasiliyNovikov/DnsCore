@@ -196,17 +196,17 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         if (transportRequest is null)
             return null;
 
-        try
-        {
-            using (transportRequest)
+        using (transportRequest)
+            try
+            {
                 return DnsRequestEncoder.Decode(transportRequest.Buffer.Span);
-        }
-        catch (FormatException e)
-        {
-            if (_logger != null)
-                LogErrorDecodingDnsRequest(_logger, e, connection.RemoteEndPoint, connection.TransportType);
-            return null;
-        }
+            }
+            catch (FormatException e)
+            {
+                if (_logger != null)
+                    LogErrorDecodingDnsRequest(_logger, e, connection.RemoteEndPoint, connection.TransportType, Convert.ToHexString(transportRequest.Buffer.Span));
+                return null;
+            }
     }
 
     private async Task HandleRequest(DnsServerTransportConnection connection, DnsRequest request, CancellationToken cancellationToken)
@@ -302,8 +302,8 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
     [LoggerMessage(LogLevel.Error, "Error sending DNS response to {RemoteEndPoint} {TransportType}:\n{Response}")]
     private static partial void LogErrorSendingDnsResponse(ILogger logger, Exception e, EndPoint remoteEndPoint, DnsTransportType transportType, DnsResponse response);
 
-    [LoggerMessage(LogLevel.Error, "Error decoding DNS request from {RemoteEndPoint} {TransportType}")]
-    private static partial void LogErrorDecodingDnsRequest(ILogger logger, Exception e, EndPoint remoteEndPoint, DnsTransportType transportType);
+    [LoggerMessage(LogLevel.Error, "Error decoding DNS request from {RemoteEndPoint} {TransportType}: {RequestBytes}")]
+    private static partial void LogErrorDecodingDnsRequest(ILogger logger, Exception e, EndPoint remoteEndPoint, DnsTransportType transportType, string requestBytes);
 
     [LoggerMessage(LogLevel.Error, "Truncated DNS response to {RemoteEndPoint} {TransportType}:\n{Response}")]
     private static partial void LogErrorDnsResponseTruncated(ILogger logger, EndPoint remoteEndPoint, DnsTransportType transportType, DnsResponse response);
