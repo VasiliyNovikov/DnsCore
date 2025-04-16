@@ -19,7 +19,7 @@ public readonly struct DnsLabel
 
     public ReadOnlySpan<char> Span => _label.AsSpan();
 
-    public ushort Length => (ushort)_label.Length;
+    public byte Length => (byte)_label.Length;
 
     public bool IsEmpty => _label.Length == 0;
 

@@ -16,7 +16,7 @@ public sealed class DnsName
 
     public static DnsName Empty { get; } = new(DnsLabel.Empty, null);
 
-    public int Length { get; }
+    public byte Length { get; }
 
     public bool IsEmpty => Length == 1;
 
@@ -39,7 +39,7 @@ public sealed class DnsName
 
         Label = label;
         Parent = parent;
-        Length = length;
+        Length = (byte)length;
     }
 
     private static DnsName ParseCore(StringSegment name)
