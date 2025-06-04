@@ -10,7 +10,7 @@ public sealed class DnsQuestion(DnsName name, DnsRecordType recordType, DnsClass
 {
     public bool Equals(DnsQuestion? other) => other is not null && Class == other.Class && RecordType == other.RecordType && Name == other.Name;
 
-    public override bool Equals(object? obj) => obj is DnsName name && Equals(name);
+    public override bool Equals(object? obj) => obj is DnsQuestion question && Equals(question);
 
     public override int GetHashCode() => HashCode.Combine(Name, RecordType, Class);
 
