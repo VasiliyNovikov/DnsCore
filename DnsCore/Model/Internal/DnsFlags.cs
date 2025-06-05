@@ -11,8 +11,8 @@ internal enum DnsFlags : ushort
     Response             = 0b_1000_0000_0000_0000,
     Query                = 0b_0000_0000_0000_0000,
 
-    // Query Type (OPCODE) - 4 bits
-    OpCodeMask           = 0b_0001_1000_0000_0000,
+    // Query Type (OPCODE) - bits 11-14 (4 bits)
+    OpCodeMask           = 0b_0111_1000_0000_0000,
     OpCodeQuery          = 0b_0000_0000_0000_0000, // Standard query (0)
     OpCodeIQuery         = 0b_0000_1000_0000_0000, // Inverse query (1)
     OpCodeStatus         = 0b_0001_0000_0000_0000, // Server status request (2)
@@ -33,7 +33,7 @@ internal enum DnsFlags : ushort
     // Reserved (for future use) - 3 bits
 
     // Response Code (RCODE) - 4 bits
-    ResponseCodeMask     = 0b_0000_0000_0000_0111,
+    ResponseCodeMask     = 0b_0000_0000_0000_1111,
     NoError              = 0b_0000_0000_0000_0000,
     FormatError          = 0b_0000_0000_0000_0001,
     ServerFailure        = 0b_0000_0000_0000_0010,
