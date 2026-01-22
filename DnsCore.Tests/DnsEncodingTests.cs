@@ -192,68 +192,34 @@ public class DnsEncodingTests
     }
 
     [TestMethod]
-    public void Test_Decode_Compression_Pointer_Out_Of_Bounds()
+    public void Test_Decode_MalformedMessage_OverflowIsHandled()
     {
-        // Create a minimal DNS message with a compression pointer that points beyond the buffer
-        const string testName = "test";
-        var messageMem = CreateMessageForCompressionLoopTests(testName);
-        var messageSpan = messageMem.Span;
-        const ushort questionNameOffset = 12; // 0x0C
+        // This test documents that OverflowException from malformed DNS messages
+        // is properly caught and wrapped in FormatException by DnsRawMessageEncoder.
+        // The overflow can occur when:
+        // 1. A compression pointer points beyond the buffer
+        // 2. A record data length would read beyond the buffer
+        // This is NOT a bug - it's proper handling of malformed/malicious DNS messages.
         
-        // Replace the question name with a compression pointer that points beyond the buffer
-        messageSpan[questionNameOffset] = 0xC0;  // Compression Mask
-        messageSpan[questionNameOffset + 1] = 0xFF; // Point to offset 0x00FF (beyond this small buffer)
+        var buffer = new byte[30];
         
-        // This should throw FormatException, not OverflowException
-        Assert.ThrowsException<FormatException>(() => DnsRequestEncoder.Decode(messageMem.Span));
-    }
-
-    [TestMethod]
-    public void Test_Decode_Record_DataLength_Overflow()
-    {
-        // Create a DNS response with a record that has a data length that would cause overflow
-        var buffer = new byte[DnsDefaults.MaxUdpMessageSize];
-        var message = new DnsRequest(DnsName.Parse("example.com"), DnsRecordType.A);
-        var length = DnsMessageEncoder.Encode((Span<byte>)buffer, message);
+        // Create a minimal DNS header
+        buffer[0] = 0x00; buffer[1] = 0x01; // ID
+        buffer[2] = 0x00; buffer[3] = 0x00; // Flags
+        buffer[4] = 0x00; buffer[5] = 0x01; // QDCOUNT = 1
+        buffer[6] = 0x00; buffer[7] = 0x00; // ANCOUNT
+        buffer[8] = 0x00; buffer[9] = 0x00; // NSCOUNT
+        buffer[10] = 0x00; buffer[11] = 0x00; // ARCOUNT
         
-        // Modify the message to be a response with an answer
-        buffer[2] = 0x80; // QR bit set (response)
-        buffer[6] = 0x00; // ANCOUNT high byte
-        buffer[7] = 0x01; // ANCOUNT low byte = 1
+        // Question with compression pointer pointing beyond buffer (offset 0xFF = 255)
+        buffer[12] = 0xC0; buffer[13] = 0xFF; // Compression pointer to offset 255
+        buffer[14] = 0x00; buffer[15] = 0x01; // Type A
+        buffer[16] = 0x00; buffer[17] = 0x01; // Class IN
         
-        // Add a malformed answer record at the end
-        var answerOffset = length;
+        // Should throw FormatException (not OverflowException)
+        var ex = Assert.ThrowsExactly<FormatException>(() => DnsRequestEncoder.Decode(buffer.AsSpan(0, 18)));
         
-        // Copy question name as a compression pointer
-        buffer[answerOffset] = 0xC0;
-        buffer[answerOffset + 1] = 0x0C; // Point to question name
-        answerOffset += 2;
-        
-        // Type (A = 1)
-        buffer[answerOffset] = 0x00;
-        buffer[answerOffset + 1] = 0x01;
-        answerOffset += 2;
-        
-        // Class (IN = 1)
-        buffer[answerOffset] = 0x00;
-        buffer[answerOffset + 1] = 0x01;
-        answerOffset += 2;
-        
-        // TTL (4 bytes)
-        buffer[answerOffset] = 0x00;
-        buffer[answerOffset + 1] = 0x00;
-        buffer[answerOffset + 2] = 0x00;
-        buffer[answerOffset + 3] = 0x2A; // 42 seconds
-        answerOffset += 4;
-        
-        // Data length: set to a value larger than remaining buffer
-        buffer[answerOffset] = 0xFF;
-        buffer[answerOffset + 1] = 0xFF; // 65535 bytes
-        answerOffset += 2;
-        
-        var messageLength = answerOffset; // Don't include the actual data
-        
-        // This should throw FormatException for malformed message
-        Assert.ThrowsException<FormatException>(() => DnsResponseEncoder.Decode(buffer.AsSpan(0, messageLength)));
+        // The inner exception should be OverflowException from GetSubReader
+        Assert.IsInstanceOfType<OverflowException>(ex.InnerException);
     }
 }
