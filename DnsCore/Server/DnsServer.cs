@@ -103,7 +103,7 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
             await ServerTaskScheduler.Run(async (scheduler, ct) =>
             {
                 foreach (var transport in DnsServerTransport.Create(_transportType, _endPoints))
-                    scheduler.Enqueue(async (s, ct) => await AcceptConnections(s, transport, ct));
+                    scheduler.Enqueue(async (s, ct) => await AcceptConnections(s, transport, ct).ConfigureAwait(false));
                 await Task.Delay(Timeout.Infinite, ct).ConfigureAwait(false);
             }, cancellationToken).ConfigureAwait(false);
         }
@@ -137,7 +137,7 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
                 {
                     var connection = await serverTransport.Accept(cancellationToken).ConfigureAwait(false);
                     retryInterval = TimeSpan.Zero;
-                    scheduler.Enqueue(async (_, ct) => await ProcessRequests(connection, ct));
+                    scheduler.Enqueue(async (_, ct) => await ProcessRequests(connection, ct).ConfigureAwait(false));
                 }
                 catch (DnsServerTransportException e)
                 {
@@ -156,7 +156,7 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
                             throw;
                     }
 
-                    await Task.Delay(retryInterval, cancellationToken);
+                    await Task.Delay(retryInterval, cancellationToken).ConfigureAwait(false);
                 }
             }
         }

@@ -17,7 +17,7 @@ public sealed class DnsRequest : DnsMessage
     }
 
     public DnsRequest(IEnumerable<DnsQuestion>? questions = null)
-        : base(DnsMessageIdGenerator.NextId(), questions)
+        : base(DnsRequestIdGenerator.NextId(), questions)
     {
     }
 
