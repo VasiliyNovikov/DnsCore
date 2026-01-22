@@ -1,9 +1,8 @@
-﻿using System.Threading;
+﻿using System.Security.Cryptography;
 
 namespace DnsCore.Model;
 
 internal static class DnsRequestIdGenerator
 {
-    private static uint _nextId;
-    public static ushort NextId() => (ushort)Interlocked.Increment(ref _nextId);
+    public static ushort NextId() => (ushort)RandomNumberGenerator.GetInt32(ushort.MaxValue);
 }
