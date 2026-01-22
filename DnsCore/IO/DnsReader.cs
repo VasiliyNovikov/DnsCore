@@ -34,7 +34,9 @@ internal ref struct DnsReader
 
     public readonly DnsReader GetSubReader(ushort position, ushort length)
     {
-        if (position > _originalBuffer.Length || position + length > _originalBuffer.Length)
+        if (position > _originalBuffer.Length)
+            throw new FormatException("Invalid DNS message: sub-reader position is out of buffer bounds");
+        if (length > _originalBuffer.Length - position)
             throw new FormatException("Invalid DNS message: sub-reader bounds exceed buffer size");
         return new(_originalBuffer, position, length);
     }

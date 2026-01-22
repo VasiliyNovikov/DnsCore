@@ -202,7 +202,7 @@ public class DnsEncodingTests
         
         // Replace the question name with a compression pointer that points beyond the buffer
         messageSpan[questionNameOffset] = 0xC0;  // Compression Mask
-        messageSpan[questionNameOffset + 1] = 0xFF; // Point to offset 0x3FFF (beyond any reasonable buffer)
+        messageSpan[questionNameOffset + 1] = 0xFF; // Point to offset 0x00FF (beyond this small buffer)
         
         // This should throw FormatException, not OverflowException
         Assert.ThrowsException<FormatException>(() => DnsRequestEncoder.Decode(messageMem.Span));
