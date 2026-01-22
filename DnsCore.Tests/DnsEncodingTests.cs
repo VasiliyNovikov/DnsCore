@@ -190,4 +190,70 @@ public class DnsEncodingTests
 
         Assert.ThrowsException<FormatException>(() => DnsRequestEncoder.Decode(messageMem.Span)); // Former implementation was throwing StackOverflowException
     }
+
+    [TestMethod]
+    public void Test_Decode_Compression_Pointer_Out_Of_Bounds()
+    {
+        // Create a minimal DNS message with a compression pointer that points beyond the buffer
+        const string testName = "test";
+        var messageMem = CreateMessageForCompressionLoopTests(testName);
+        var messageSpan = messageMem.Span;
+        const ushort questionNameOffset = 12; // 0x0C
+        
+        // Replace the question name with a compression pointer that points beyond the buffer
+        messageSpan[questionNameOffset] = 0xC0;  // Compression Mask
+        messageSpan[questionNameOffset + 1] = 0xFF; // Point to offset 0x3FFF (beyond any reasonable buffer)
+        
+        // This should throw FormatException, not OverflowException
+        Assert.ThrowsException<FormatException>(() => DnsRequestEncoder.Decode(messageMem.Span));
+    }
+
+    [TestMethod]
+    public void Test_Decode_Record_DataLength_Overflow()
+    {
+        // Create a DNS response with a record that has a data length that would cause overflow
+        var buffer = new byte[DnsDefaults.MaxUdpMessageSize];
+        var message = new DnsRequest(DnsName.Parse("example.com"), DnsRecordType.A);
+        var length = DnsMessageEncoder.Encode((Span<byte>)buffer, message);
+        
+        // Modify the message to be a response with an answer
+        buffer[2] = 0x80; // QR bit set (response)
+        buffer[6] = 0x00; // ANCOUNT high byte
+        buffer[7] = 0x01; // ANCOUNT low byte = 1
+        
+        // Add a malformed answer record at the end
+        var answerOffset = length;
+        
+        // Copy question name as a compression pointer
+        buffer[answerOffset] = 0xC0;
+        buffer[answerOffset + 1] = 0x0C; // Point to question name
+        answerOffset += 2;
+        
+        // Type (A = 1)
+        buffer[answerOffset] = 0x00;
+        buffer[answerOffset + 1] = 0x01;
+        answerOffset += 2;
+        
+        // Class (IN = 1)
+        buffer[answerOffset] = 0x00;
+        buffer[answerOffset + 1] = 0x01;
+        answerOffset += 2;
+        
+        // TTL (4 bytes)
+        buffer[answerOffset] = 0x00;
+        buffer[answerOffset + 1] = 0x00;
+        buffer[answerOffset + 2] = 0x00;
+        buffer[answerOffset + 3] = 0x2A; // 42 seconds
+        answerOffset += 4;
+        
+        // Data length: set to a value larger than remaining buffer
+        buffer[answerOffset] = 0xFF;
+        buffer[answerOffset + 1] = 0xFF; // 65535 bytes
+        answerOffset += 2;
+        
+        var messageLength = answerOffset; // Don't include the actual data
+        
+        // This should throw FormatException for malformed message
+        Assert.ThrowsException<FormatException>(() => DnsResponseEncoder.Decode(buffer.AsSpan(0, messageLength)));
+    }
 }
