@@ -200,9 +200,9 @@ public class DnsEncodingTests
         // 1. A compression pointer points beyond the buffer
         // 2. A record data length would read beyond the buffer
         // This is NOT a bug - it's proper handling of malformed/malicious DNS messages.
-        
+
         var buffer = new byte[30];
-        
+
         // Create a minimal DNS header
         buffer[0] = 0x00; buffer[1] = 0x01; // ID
         buffer[2] = 0x00; buffer[3] = 0x00; // Flags
@@ -210,15 +210,15 @@ public class DnsEncodingTests
         buffer[6] = 0x00; buffer[7] = 0x00; // ANCOUNT
         buffer[8] = 0x00; buffer[9] = 0x00; // NSCOUNT
         buffer[10] = 0x00; buffer[11] = 0x00; // ARCOUNT
-        
+
         // Question with compression pointer pointing beyond buffer (offset 0xFF = 255)
         buffer[12] = 0xC0; buffer[13] = 0xFF; // Compression pointer to offset 255
         buffer[14] = 0x00; buffer[15] = 0x01; // Type A
         buffer[16] = 0x00; buffer[17] = 0x01; // Class IN
-        
+
         // Should throw FormatException (not OverflowException)
         var ex = Assert.ThrowsExactly<FormatException>(() => DnsRequestEncoder.Decode(buffer.AsSpan(0, 18)));
-        
+
         // The inner exception should be OverflowException from GetSubReader
         Assert.IsInstanceOfType<OverflowException>(ex.InnerException);
     }
