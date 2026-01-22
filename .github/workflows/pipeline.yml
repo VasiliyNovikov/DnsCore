@@ -24,12 +24,13 @@ jobs:
           dotnet-version: |
             8.0.x
             9.0.x
+            10.0.x
 
       - name: Build
-        run: dotnet build -c ${{ vars.CONFIGURATION }}
+        run: dotnet build -c Release
 
       - name: Test
-        run: dotnet test -c ${{ vars.CONFIGURATION }} --no-build --logger trx --results-directory "TestResults-${{ matrix.os }}"
+        run: dotnet test -c Release --no-build --logger trx --results-directory "TestResults-${{ matrix.os }}"
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
@@ -52,12 +53,19 @@ jobs:
           dotnet-version: |
             8.0.x
             9.0.x
+            10.0.x
+
+      - name: Package Version
+        id: package_version
+        run: |
+          version=$(dotnet run ./.github/workflows/package_version.cs)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Build
-        run: dotnet build -c ${{ vars.CONFIGURATION }}
+        run: dotnet build -c Release
 
       - name: Pack
-        run: dotnet pack ./DnsCore/DnsCore.csproj -c ${{ vars.CONFIGURATION }} --no-build --version-suffix "${{ fromJSON(format('["-beta-{0}", ""]', github.run_number))[github.ref_name == 'master'] }}"
+        run: dotnet pack ./DnsCore/DnsCore.csproj -c Release --no-build -p:Version=${{ steps.package_version.outputs.version }}
 
       - name: Push
         run: dotnet nuget push **/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate

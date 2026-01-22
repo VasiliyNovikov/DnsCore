@@ -47,7 +47,7 @@ public class DnsServerTests
             var actualAnswers = await Resolve(question.Name.ToString(), question.RecordType, useTcp);
 
             Assert.AreEqual(question, actualQuestion);
-            Assert.AreEqual(answers.Length, actualAnswers.Count);
+            Assert.HasCount(answers.Length, actualAnswers);
             for (var i = 0; i < answers.Length; ++i)
                 DnsAssert.AreEqual(answers[i], actualAnswers[i]);
         }
@@ -190,10 +190,9 @@ public class DnsServerTests
 
         await process.WaitForExitAsync();
 
-        if (process.ExitCode != 0)
-            throw new CommandException(error.ToString().Trim());
-
-        return output.ToString().Trim();
+        return process.ExitCode == 0
+            ? output.ToString().Trim()
+            : throw new CommandException(error.ToString().Trim());
 
         static void HandleDataReceived(StringBuilder target, DataReceivedEventArgs e)
         {

@@ -27,7 +27,7 @@ public class DnsEncodingTests
         List<DnsResponse> responses = [
             requests[0].Reply(new DnsCNameRecord(DnsName.Parse("www.example.com"), DnsName.Parse("host.example.com"), TimeSpan.FromSeconds(42)),
                               new DnsAddressRecord(DnsName.Parse("host.example.com"), IPAddress.Parse("1.2.3.4"), TimeSpan.FromSeconds(42))),
-            
+
             requests[1].Reply(new DnsCNameRecord(DnsName.Parse("www.example.com"), DnsName.Parse("host.example.com"), TimeSpan.FromSeconds(42)),
                               new DnsAddressRecord(DnsName.Parse("www.example.com"), IPAddress.Parse("::1:2:3:4"), TimeSpan.FromSeconds(42))),
 
@@ -41,23 +41,23 @@ public class DnsEncodingTests
         ];
 
         List<DnsMessage> messages = [.. requests, .. responses];
-        
-        Span<byte> buffer = stackalloc byte[DnsDefaults.MaxUdpMessageSize]; 
+
+        Span<byte> buffer = stackalloc byte[DnsDefaults.MaxUdpMessageSize];
         foreach (var message in messages)
         {
             var length = DnsMessageEncoder.Encode(buffer, message);
             var messageSpan = buffer[..length];
-            
+
             DnsMessage actualMessage = message is DnsRequest ? DnsRequestEncoder.Decode(messageSpan) : DnsResponseEncoder.Decode(messageSpan);
-            
+
             Assert.AreEqual(message.Id, actualMessage.Id);
             Assert.AreEqual(message.RequestType, actualMessage.RequestType);
             Assert.AreEqual(message.RecursionDesired, actualMessage.RecursionDesired);
-            Assert.AreEqual(message.Questions.Count, actualMessage.Questions.Count);
+            Assert.HasCount(message.Questions.Count, actualMessage.Questions);
             for (var i = 0; i < message.Questions.Count; ++i)
                 Assert.AreEqual(message.Questions[i], actualMessage.Questions[i]);
 
-            if (message is DnsRequest) 
+            if (message is DnsRequest)
                 Assert.IsInstanceOfType<DnsRequest>(actualMessage);
             else
             {
@@ -67,13 +67,13 @@ public class DnsEncodingTests
                 Assert.AreEqual(response.RecursionAvailable, actualResponse.RecursionAvailable);
                 Assert.AreEqual(response.AuthoritativeAnswer, actualResponse.AuthoritativeAnswer);
                 Assert.AreEqual(response.Truncated, actualResponse.Truncated);
-                Assert.AreEqual(response.Answers.Count, actualResponse.Answers.Count);
+                Assert.HasCount(response.Answers.Count, actualResponse.Answers);
                 for (var i = 0; i < response.Answers.Count; ++i)
                     DnsAssert.AreEqual(response.Answers[i], actualResponse.Answers[i]);
-                Assert.AreEqual(response.Authorities.Count, actualResponse.Authorities.Count);
+                Assert.HasCount(response.Authorities.Count, actualResponse.Authorities);
                 for (var i = 0; i < response.Authorities.Count; ++i)
                     DnsAssert.AreEqual(response.Authorities[i], actualResponse.Authorities[i]);
-                Assert.AreEqual(response.Additional.Count, actualResponse.Additional.Count);
+                Assert.HasCount(response.Additional.Count, actualResponse.Additional);
                 for (var i = 0; i < response.Additional.Count; ++i)
                     DnsAssert.AreEqual(response.Additional[i], actualResponse.Additional[i]);
             }
@@ -83,13 +83,13 @@ public class DnsEncodingTests
             for (var l = 0; l < length; ++l)
             {
                 var smallLength = l;
-                Assert.ThrowsException<FormatException>(() =>
+                Assert.ThrowsExactly<FormatException>(() =>
                 {
-                    Span<byte> smallBuffer = stackalloc byte[smallLength]; 
+                    Span<byte> smallBuffer = stackalloc byte[smallLength];
                     DnsMessageEncoder.Encode(smallBuffer, message);
                 });
 
-                Assert.ThrowsException<FormatException>(() =>
+                Assert.ThrowsExactly<FormatException>(() =>
                 {
                     Span<byte> buffer = stackalloc byte[length];
                     DnsMessageEncoder.Encode(buffer, message);
@@ -112,8 +112,8 @@ public class DnsEncodingTests
         {
             var messageMem = buffer[..Random.Shared.Next(0, DnsDefaults.MaxUdpMessageSize)];
             Random.Shared.NextBytes(messageMem.Span);
-            Assert.ThrowsException<FormatException>(() => DnsRequestEncoder.Decode(messageMem.Span));
-            Assert.ThrowsException<FormatException>(() => DnsResponseEncoder.Decode(messageMem.Span));
+            Assert.ThrowsExactly<FormatException>(() => DnsRequestEncoder.Decode(messageMem.Span));
+            Assert.ThrowsExactly<FormatException>(() => DnsResponseEncoder.Decode(messageMem.Span));
         }
     }
 
@@ -137,13 +137,13 @@ public class DnsEncodingTests
         const ushort questionNameOffset = 12; // 0x0C
         var questionName = messageSpan.Slice(questionNameOffset, encodedTestName.Length);
         Assert.IsTrue(encodedTestName.SequenceEqual(questionName)); // Self-check
-        
+
         // Replace "\x0004w" in "\x0004wxyz" with a pointer to the beginning of name
         const ushort wxyzLabelOffset = questionNameOffset + 5;
         messageSpan[wxyzLabelOffset] = 0xC0;  // Compression Mask
         messageSpan[wxyzLabelOffset + 1] = (byte)questionNameOffset;
 
-        Assert.ThrowsException<FormatException>(() => DnsRequestEncoder.Decode(messageMem.Span)); // Former implementation was throwing StackOverflowException
+        Assert.ThrowsExactly<FormatException>(() => DnsRequestEncoder.Decode(messageMem.Span)); // Former implementation was throwing StackOverflowException
     }
 
     [TestMethod]
@@ -158,12 +158,12 @@ public class DnsEncodingTests
         const ushort questionNameOffset = 12; // 0x0C
         var questionName = messageSpan.Slice(questionNameOffset, encodedTestName.Length);
         Assert.IsTrue(encodedTestName.SequenceEqual(questionName)); // Self-check
-        
+
         // Replace "\x0004t" in "\x0004test" with a pointer to itself
         messageSpan[questionNameOffset] = 0xC0;  // Compression Mask
         messageSpan[questionNameOffset + 1] = (byte)questionNameOffset;
 
-        Assert.ThrowsException<FormatException>(() => DnsRequestEncoder.Decode(messageMem.Span)); // Former implementation was throwing StackOverflowException
+        Assert.ThrowsExactly<FormatException>(() => DnsRequestEncoder.Decode(messageMem.Span)); // Former implementation was throwing StackOverflowException
     }
 
     [TestMethod]
@@ -188,6 +188,6 @@ public class DnsEncodingTests
         messageSpan[questionNameOffset] = 0xC0;  // Compression Mask
         messageSpan[questionNameOffset + 1] = (byte)wxyzLabelOffset;
 
-        Assert.ThrowsException<FormatException>(() => DnsRequestEncoder.Decode(messageMem.Span)); // Former implementation was throwing StackOverflowException
+        Assert.ThrowsExactly<FormatException>(() => DnsRequestEncoder.Decode(messageMem.Span)); // Former implementation was throwing StackOverflowException
     }
 }
