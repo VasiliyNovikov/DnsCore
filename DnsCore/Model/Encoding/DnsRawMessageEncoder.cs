@@ -62,7 +62,7 @@ internal static class DnsRawMessageEncoder
             throw new FormatException($"Buffer is too short: {e.Message}", e);
         }
     }
-    
+
     private static DnsRawMessage Decode(ref DnsReader reader)
     {
         var id = reader.Read<ushort>();

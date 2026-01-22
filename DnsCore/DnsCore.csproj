@@ -1,8 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <Import Project="../DnsCore.targets" />
   <PropertyGroup>
-    <Version>0.1.32</Version>
-    <PackageVersion>$(Version)$(VersionSuffix)</PackageVersion>
+    <Version>0.1.0</Version>
+    <PackageVersion>$(Version)</PackageVersion>
     <Authors>Vasyl Novikov</Authors>
     <Description>.NET lightweight DNS server &amp; client</Description>
     <Copyright>Vasyl Novikov</Copyright>

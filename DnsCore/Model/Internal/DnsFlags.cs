@@ -3,7 +3,8 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace DnsCore.Model.Internal;
 
-[SuppressMessage("Microsoft.Design", "CA1069: Enums values should not be duplicated", Justification = "By design")]
+[SuppressMessage("Design", "CA1069: Enums values should not be duplicated", Justification = "By design")]
+[SuppressMessage("Style", "IDE0055:Fix formatting", Justification = "Intentional")]
 [Flags]
 internal enum DnsFlags : ushort
 {

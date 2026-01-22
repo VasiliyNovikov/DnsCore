@@ -19,7 +19,7 @@ internal abstract class DnsServerTransport(EndPoint endPoint) : IAsyncDisposable
     {
         if (endPoints.Count == 0)
             throw new ArgumentException("At least one endpoint must be provided", nameof(endPoints));
-        
+
         foreach (var endPoint in endPoints)
         {
             switch (type)

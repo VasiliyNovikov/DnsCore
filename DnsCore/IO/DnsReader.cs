@@ -61,7 +61,7 @@ internal ref struct DnsReader
         Position += length;
         return result;
     }
-    
+
     public void Skip(ushort length) => Read(length);
 
     public ReadOnlySpan<byte> ReadToEnd() => Read((ushort)(_slicedBuffer.Length - Position));
