@@ -14,7 +14,7 @@ public sealed class DnsResponse : DnsMessage
     public bool Truncated { get; set; }
     public DnsResponseStatus Status { get; set; }
     public List<DnsRecord> Answers { get; } = new(1);
-    public List<DnsRecord> Authorities { get; } = new();
+    public List<DnsRecord> Authorities { get; } = [];
 
     internal DnsResponse(DnsRawMessage rawMessage)
         : base(rawMessage)

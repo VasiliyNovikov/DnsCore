@@ -18,7 +18,7 @@ internal class ServerTaskScheduler : IDisposable
         _externalToken = externalToken;
         _linkedCts = CancellationTokenSource.CreateLinkedTokenSource(externalToken);
     }
-    
+
     public void Dispose() => _linkedCts.Dispose();
 
     public void Enqueue(Func<ServerTaskScheduler, CancellationToken, ValueTask> task) => _tasks.Add(EnqueueWrapper(task));

@@ -2,8 +2,9 @@
   <Folder Name="/.github/" />
   <Folder Name="/.github/workflows/">
     <File Path=".github/workflows/pipeline.yml" />
+    <File Path=".github/workflows/package_version.cs" />
   </Folder>
-  <Folder Name="/Solution Items/">
+  <Folder Name="/.sln/">
     <File Path=".editorconfig" />
     <File Path=".gitignore" />
     <File Path="Directory.Packages.props" />

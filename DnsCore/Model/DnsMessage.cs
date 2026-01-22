@@ -14,7 +14,7 @@ public abstract class DnsMessage
     public bool RecursionDesired { get; set; }
 
     public List<DnsQuestion> Questions { get; } = new(1);
-    public List<DnsRecord> Additional { get; } = new();
+    public List<DnsRecord> Additional { get; } = [];
 
     private protected DnsMessage(DnsRawMessage rawMessage)
         : this(rawMessage.Id, rawMessage.Questions, rawMessage.Additional)
