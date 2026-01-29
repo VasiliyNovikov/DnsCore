@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using System.Net;
+using System.Net.Sockets;
 
 using DnsCore.Common;
 
@@ -11,6 +12,7 @@ public class DnsServerOptions
     private const int DefaultAcceptRetryTimeoutMilliseconds = 10000;
     private const int DefaultAcceptRetryInitialIntervalMilliseconds = 10;
     private const int DefaultAcceptRetryMaxIntervalMilliseconds = DefaultAcceptRetryTimeoutMilliseconds / 2;
+    private static readonly IPAddress[] DefaultListenAddresses = Socket.OSSupportsIPv6 ? [IPAddress.Any, IPAddress.IPv6Any] : [IPAddress.Any];
 
     public DnsTransportType TransportType { get; set; } = DnsTransportType.All;
     public EndPoint[] EndPoints { get; }
@@ -36,7 +38,7 @@ public class DnsServerOptions
     }
 
     public DnsServerOptions(ushort port = DnsDefaults.Port)
-        : this([new IPEndPoint(IPAddress.Any, port), new IPEndPoint(IPAddress.IPv6Any, port)])
+        : this(DefaultListenAddresses, port)
     {
     }
 
