@@ -126,8 +126,9 @@ public sealed class DnsClient : IAsyncDisposable
                         if (tasks.Count > 1)
                         {
                             unobservedTasks.AddRange(tasks[1..]);
+                            var delayTask = tasks[0];
                             tasks.Clear(); // Clear all ongoing UDP requests
-                            tasks.Add(Task.CompletedTask);
+                            tasks.Add(delayTask);
                         }
                         continue;
                     }
