@@ -29,6 +29,9 @@ jobs:
       - name: Build
         run: dotnet build -c Release
 
+      - name: Verify package_version.cs
+        run: dotnet build ./.github/workflows/package_version.cs
+
       - name: Test
         run: dotnet test -c Release --no-build -m:1 --logger trx --results-directory "TestResults-${{ matrix.os }}"
 
@@ -58,7 +61,7 @@ jobs:
       - name: Package Version
         id: package_version
         run: |
-          version=$(dotnet run ./.github/workflows/package_version.cs)
+          version=$(dotnet ./.github/workflows/package_version.cs)
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Build

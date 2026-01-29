@@ -1,6 +1,5 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="../DnsCore.targets" />
-    <ItemGroup>
+  <ItemGroup>
     <PackageReference Include="CSnakes.Runtime" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />

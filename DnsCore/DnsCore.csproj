@@ -1,5 +1,4 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="../DnsCore.targets" />
   <PropertyGroup>
     <Version>0.1.0</Version>
     <PackageVersion>$(Version)</PackageVersion>

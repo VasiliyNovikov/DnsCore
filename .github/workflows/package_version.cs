@@ -28,7 +28,7 @@ catch (HttpRequestException e) when (e.StatusCode == HttpStatusCode.NotFound)
 }
 
 int[] patches = [.. from v in versions where v.Major == baseVersion.Major && v.Minor == baseVersion.Minor select v.Patch];
-var newPatch = patches.Any() ? patches.Max() + 1 : 0;
+var newPatch = patches.Length > 0 ? patches.Max() + 1 : 0;
 
 var newRelease = githubRefName == "master" ? "" : $"beta-{githubRunId}";
 
@@ -36,4 +36,4 @@ var newVersion = new SemanticVersion(baseVersion.Major, baseVersion.Minor, newPa
 
 Console.WriteLine(newVersion);
 
-record NuGetVersions(string[] versions);
+sealed record NuGetVersions(string[] versions);
