@@ -20,7 +20,7 @@ public sealed class DnsClient : IAsyncDisposable
     private readonly DnsResolver[]? _tcpResolvers;
     private uint _transportIndex = uint.MaxValue;
 
-    public DnsClient(DnsTransportType transportType, EndPoint[] serverEndPoints, DnsClientOptions? options = null)
+    public DnsClient(EndPoint[] serverEndPoints, DnsClientOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(serverEndPoints);
         ArgumentOutOfRangeException.ThrowIfZero(serverEndPoints.Length);
@@ -29,13 +29,13 @@ public sealed class DnsClient : IAsyncDisposable
         _options.Validate();
         _defaultResolvers = new DnsResolver[serverEndPoints.Length];
         DnsTransportType defaultTransportType;
-        if (transportType == DnsTransportType.All)
+        if (_options.TransportType == DnsTransportType.All)
         {
             defaultTransportType = DnsTransportType.UDP;
             _tcpResolvers = new DnsResolver[serverEndPoints.Length];
         }
         else
-            defaultTransportType = transportType;
+            defaultTransportType = _options.TransportType;
         for (var i = 0; i < serverEndPoints.Length; ++i)
         {
             _defaultResolvers[i] = defaultTransportType == DnsTransportType.UDP
@@ -45,18 +45,15 @@ public sealed class DnsClient : IAsyncDisposable
         }
     }
 
-    public DnsClient(DnsTransportType transportType, IPAddress[] serverAddresses, DnsClientOptions? options = null)
-        : this(transportType, serverAddresses.Select(a => new IPEndPoint(a, DnsDefaults.Port)).ToArray<EndPoint>(), options)
+    public DnsClient(IPAddress[] serverAddresses, DnsClientOptions? options = null)
+        : this([.. serverAddresses.Select(a => new IPEndPoint(a, DnsDefaults.Port))], options)
     {
     }
 
-    public DnsClient(DnsTransportType transportType, EndPoint serverEndPoint, DnsClientOptions? options = null) : this(transportType, [serverEndPoint], options) { }
-    public DnsClient(DnsTransportType transportType, IPAddress serverAddress, ushort port = DnsDefaults.Port, DnsClientOptions? options = null) : this(transportType, new IPEndPoint(serverAddress, port), options) { }
-    public DnsClient(EndPoint[] serverEndPoints, DnsClientOptions? options = null) : this(DnsTransportType.All, serverEndPoints, options) { }
-    public DnsClient(IPAddress[] serverAddresses, DnsClientOptions? options = null) : this(DnsTransportType.All, serverAddresses, options) { }
-    public DnsClient(EndPoint serverEndPoint, DnsClientOptions? options = null) : this(DnsTransportType.All, serverEndPoint, options) { }
-    public DnsClient(IPAddress serverAddress, ushort port = DnsDefaults.Port, DnsClientOptions? options = null) : this(DnsTransportType.All, serverAddress, port, options) { }
-    public DnsClient(DnsClientOptions? options = null) : this(DnsTransportType.All, SystemDnsConfiguration.GetAddresses(), options) { }
+    public DnsClient(EndPoint serverEndPoint, DnsClientOptions? options = null) : this([serverEndPoint], options) { }
+    public DnsClient(IPAddress serverAddress, ushort port, DnsClientOptions? options = null) : this(new IPEndPoint(serverAddress, port), options) { }
+    public DnsClient(IPAddress serverAddress, DnsClientOptions? options = null) : this([serverAddress], options) { }
+    public DnsClient(DnsClientOptions? options = null) : this(SystemDnsConfiguration.GetAddresses(), options) { }
 
     public async ValueTask DisposeAsync()
     {

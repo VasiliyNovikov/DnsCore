@@ -39,7 +39,7 @@ public class DnsServerTests
         DnsQuestion? actualQuestion = null;
 
         using var serverCancellation = new CancellationTokenSource();
-        var server = new DnsServer(ServerAddress, Port, transportType, ProcessRequest, Logger);
+        var server = new DnsServer(ProcessRequest, new(ServerAddress, Port) { TransportType = transportType }, Logger);
         var serverTask = server.Run(serverCancellation.Token);
         try
         {

@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using DnsCore;
 using DnsCore.Common;
 using DnsCore.Model;
+using DnsCore.Server;
 using DnsCore.Server.Hosting;
 
 using Microsoft.Extensions.Hosting;
@@ -42,11 +43,10 @@ rootCommand.SetAction(async parseResult =>
         Console.WriteLine($"\t{record}");
     Console.WriteLine("Press any key to exit...");
 
+    var options = address is null ? new DnsServerOptions(port) : new DnsServerOptions(address, port);
+    options.TransportType = transport;
     var builder = Host.CreateApplicationBuilder(args);
-    if (address is null)
-        builder.Services.AddDns(port, transport, HandleRequest);
-    else
-        builder.Services.AddDns(address, port, transport, HandleRequest);
+    builder.Services.AddDns(HandleRequest, options);
     builder.Logging.AddConsole().SetMinimumLevel(LogLevel.Debug);
     using var host = builder.Build();
     await host.RunAsync();

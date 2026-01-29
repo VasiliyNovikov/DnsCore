@@ -15,71 +15,29 @@ namespace DnsCore.Server;
 
 public sealed partial class DnsServer
 {
-    private const int AcceptRetryInitialIntervalMilliseconds = 10;
-    private const int AcceptRetryTimeoutMilliseconds = 10000;
-    private const int AcceptRetryMaxIntervalMilliseconds = AcceptRetryTimeoutMilliseconds / 2;
-
-    private readonly EndPoint[] _endPoints;
-    private readonly DnsTransportType _transportType;
     private readonly Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> _handler;
+    private readonly DnsServerOptions _options;
     private readonly ILogger? _logger;
 
-    public DnsServer(EndPoint[] endPoints, DnsTransportType transportType, Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, ILogger? logger = null)
+    public DnsServer(Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, DnsServerOptions? options = null, ILogger? logger = null)
     {
-        ArgumentNullException.ThrowIfNull(endPoints);
-        ArgumentNullException.ThrowIfNull(handler);
-
-        _endPoints = endPoints;
-        _transportType = transportType;
         _handler = handler;
+        _options = options ?? new DnsServerOptions();
+        _options.Validate();
         _logger = logger;
     }
 
-    public DnsServer(EndPoint endPoint, DnsTransportType transportType, Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, ILogger? logger = null)
-    {
-        ArgumentNullException.ThrowIfNull(endPoint);
-        ArgumentNullException.ThrowIfNull(handler);
-
-        _endPoints = [endPoint];
-        _transportType = transportType;
-        _handler = handler;
-        _logger = logger;
-    }
-
-    public DnsServer(IPAddress address, ushort port, DnsTransportType transportType, Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, ILogger? logger = null)
-        : this(new IPEndPoint(address, port), transportType, handler, logger)
-    {
-    }
-
-    public DnsServer(IPAddress address, DnsTransportType transportType, Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, ILogger? logger = null)
-        : this(new IPEndPoint(address, DnsDefaults.Port), transportType, handler, logger)
-    {
-    }
-
-    public DnsServer(ushort port, DnsTransportType transportType, Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, ILogger? logger = null)
-        : this([new IPEndPoint(IPAddress.Any, port), new IPEndPoint(IPAddress.IPv6Any, port)], transportType, handler, logger)
-    {
-    }
-
-    public DnsServer(DnsTransportType transportType, Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, ILogger? logger = null)
-        : this(DnsDefaults.Port, transportType, handler, logger)
-    {
-    }
-
-    public DnsServer(Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, ILogger? logger = null)
-        : this(DnsTransportType.All, handler, logger)
-    {
-    }
+    public DnsServer(Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, ILogger? logger = null) : this(handler, null, logger) { }
 
     public async Task Run(CancellationToken cancellationToken = default)
     {
         if (_logger is not null)
-            LogStartedDnsServer(_logger, _transportType);
+            LogStartedDnsServer(_logger, _options.TransportType);
         try
         {
             await ServerTaskScheduler.Run(async (scheduler, ct) =>
             {
-                foreach (var transport in DnsServerTransport.Create(_transportType, _endPoints))
+                foreach (var transport in DnsServerTransport.Create(_options.TransportType, _options.EndPoints))
                     scheduler.Enqueue(async (s, ct) => await AcceptConnections(s, transport, ct).ConfigureAwait(false));
                 await Task.Delay(Timeout.Infinite, ct).ConfigureAwait(false);
             }, cancellationToken).ConfigureAwait(false);
@@ -91,12 +49,12 @@ public sealed partial class DnsServer
         catch (Exception e)
         {
             if (_logger is not null)
-                LogErrorRunningDnsServer(_logger, e, _transportType);
+                LogErrorRunningDnsServer(_logger, e, _options.TransportType);
         }
         finally
         {
             if (_logger is not null)
-                LogStoppedDnsServer(_logger, _transportType);
+                LogStoppedDnsServer(_logger, _options.TransportType);
         }
     }
 
@@ -125,11 +83,11 @@ public sealed partial class DnsServer
                         throw;
 
                     if (retryInterval == TimeSpan.Zero)
-                        retryInterval = TimeSpan.FromMilliseconds(AcceptRetryInitialIntervalMilliseconds);
+                        retryInterval = _options.AcceptRetryInitialInterval;
                     else
                     {
                         retryInterval *= 2;
-                        if (retryInterval > TimeSpan.FromMilliseconds(AcceptRetryMaxIntervalMilliseconds))
+                        if (retryInterval > _options.AcceptRetryMaxInterval)
                             throw;
                     }
 
