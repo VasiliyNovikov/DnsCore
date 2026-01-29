@@ -1,1 +1,1 @@
-dnslib
+dnslib==0.9.26

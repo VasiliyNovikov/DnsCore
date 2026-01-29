@@ -8,9 +8,24 @@ public sealed class Lock
     private readonly object _lock = new();
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Enter() => Monitor.Enter(_lock);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Exit() => Monitor.Exit(_lock);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryEnter() => Monitor.TryEnter(_lock);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryEnter(int millisecondsTimeout) => Monitor.TryEnter(_lock, millisecondsTimeout);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryEnter(TimeSpan timeout) => Monitor.TryEnter(_lock, timeout);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Scope EnterScope() => new(_lock);
 
-    public ref struct Scope : IDisposable
+    public readonly ref struct Scope : IDisposable
     {
         private readonly object _lock;
 
