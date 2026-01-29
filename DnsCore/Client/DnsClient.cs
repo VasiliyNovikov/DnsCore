@@ -23,6 +23,7 @@ public sealed class DnsClient : IAsyncDisposable
     public DnsClient(DnsTransportType transportType, EndPoint[] serverEndPoints, DnsClientOptions? options = null)
     {
         _options = options ?? new();
+        _options.Validate();
         _defaultResolvers = new DnsResolver[serverEndPoints.Length];
         DnsTransportType defaultTransportType;
         if (transportType == DnsTransportType.All)
