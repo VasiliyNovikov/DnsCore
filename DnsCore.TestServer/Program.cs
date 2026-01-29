@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Globalization;
+using System.CommandLine;
 using System.Linq;
 using System.Net;
 using System.Threading;
@@ -8,14 +8,19 @@ using System.Threading.Tasks;
 using DnsCore;
 using DnsCore.Common;
 using DnsCore.Model;
-using DnsCore.Server;
+using DnsCore.Server.Hosting;
 
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-var address = IPAddress.Parse(args[0]);
-var port = args.Length < 2 ? DnsDefaults.Port : ushort.Parse(args[1], CultureInfo.InvariantCulture);
-var transport = args.Length < 3 ? DnsTransportType.All : Enum.Parse<DnsTransportType>(args[2], true);
+var addressOption = new Option<string>("-a", "--address") { Description = "DNS server address", Arity = ArgumentArity.ZeroOrOne };
+var portOption = new Option<ushort?>("-p", "--port") { Description = "DNS server port", Arity = ArgumentArity.ZeroOrOne };
+var transportOption = new Option<DnsTransportType?>("-t", "--transport") { Description = "DNS transport type", Arity = ArgumentArity.ZeroOrOne };
+
+var rootCommand = new RootCommand("Test DNS Client");
+rootCommand.Options.Add(addressOption);
+rootCommand.Options.Add(portOption);
+rootCommand.Options.Add(transportOption);
 
 var records = new DnsRecord[]
 {
@@ -25,19 +30,29 @@ var records = new DnsRecord[]
     new DnsTextRecord(DnsName.Parse("www.example.com"), "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.", TimeSpan.FromSeconds(424242))
 };
 
-Console.WriteLine("Test DNS server");
-Console.WriteLine("Records:");
-foreach (var record in records)
-    Console.WriteLine($"\t{record}");
-Console.WriteLine("Press any key to exit...");
+rootCommand.SetAction(async parseResult =>
+{
+    var address = parseResult.GetValue(addressOption) is { } addressStr ? IPAddress.Parse(addressStr) : null;
+    var port = parseResult.GetValue(portOption) ?? DnsDefaults.Port;
+    var transport = parseResult.GetValue(transportOption) ?? DnsTransportType.All;
 
-var services = new ServiceCollection()
-    .AddLogging(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Debug))
-    .BuildServiceProvider();
+    Console.WriteLine("Test DNS server");
+    Console.WriteLine("Records:");
+    foreach (var record in records)
+        Console.WriteLine($"\t{record}");
+    Console.WriteLine("Press any key to exit...");
 
-await using var server = new DnsServer(address, port, transport, HandleRequest, services.GetRequiredService<ILogger<DnsServer>>());
-await server.Run();
-return;
+    var builder = Host.CreateApplicationBuilder(args);
+    if (address is null)
+        builder.Services.AddDns(port, transport, HandleRequest);
+    else
+        builder.Services.AddDns(address, port, transport, HandleRequest);
+    builder.Logging.AddConsole().SetMinimumLevel(LogLevel.Debug);
+    using var host = builder.Build();
+    await host.RunAsync();
+});
+
+return await rootCommand.Parse(args).InvokeAsync();
 
 async ValueTask<DnsResponse> HandleRequest(DnsRequest request, CancellationToken cancellationToken)
 {

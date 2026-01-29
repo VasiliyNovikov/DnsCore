@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging;
 
 namespace DnsCore.Server;
 
-public sealed partial class DnsServer : IDisposable, IAsyncDisposable
+public sealed partial class DnsServer
 {
     private const int AcceptRetryInitialIntervalMilliseconds = 10;
     private const int AcceptRetryTimeoutMilliseconds = 10000;
@@ -23,10 +23,6 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
     private readonly DnsTransportType _transportType;
     private readonly Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> _handler;
     private readonly ILogger? _logger;
-    private bool _started;
-    private bool _disposed;
-    private Task? _runTask;
-    private CancellationTokenSource? _runCancellation;
 
     public DnsServer(EndPoint[] endPoints, DnsTransportType transportType, Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, ILogger? logger = null)
     {
@@ -60,42 +56,23 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
     {
     }
 
-    public void Start()
+    public DnsServer(ushort port, DnsTransportType transportType, Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, ILogger? logger = null)
+        : this([new IPEndPoint(IPAddress.Any, port), new IPEndPoint(IPAddress.IPv6Any, port)], transportType, handler, logger)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        if (_started)
-            throw new InvalidOperationException("Server is already running");
-
-        _runCancellation = new CancellationTokenSource();
-        _runTask = Run(_runCancellation.Token);
     }
 
-    public async ValueTask DisposeAsync()
+    public DnsServer(DnsTransportType transportType, Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, ILogger? logger = null)
+        : this(DnsDefaults.Port, transportType, handler, logger)
     {
-        if (_disposed)
-            return;
-        _disposed = true;
-        if (_runCancellation is not null)
-            await _runCancellation.CancelAsync().ConfigureAwait(false);
-        if (_runTask is not null)
-            try
-            {
-                await _runTask.ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-            }
-        _runCancellation?.Dispose();
     }
 
-    public void Dispose() => DisposeAsync().AsTask().Wait();
+    public DnsServer(Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, ILogger? logger = null)
+        : this(DnsTransportType.All, handler, logger)
+    {
+    }
 
     public async Task Run(CancellationToken cancellationToken = default)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        if (_started)
-            throw new InvalidOperationException("Server is already running");
-        _started = true;
         if (_logger is not null)
             LogStartedDnsServer(_logger, _transportType);
         try
@@ -168,8 +145,7 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         {
             while (true)
             {
-                var request = await ReceiveRequest(connection, cancellationToken).ConfigureAwait(false);
-                if (request is null)
+                if (await ReceiveRequest(connection, cancellationToken).ConfigureAwait(false) is not { } request)
                     return;
                 await HandleRequest(connection, request, cancellationToken).ConfigureAwait(false);
             }
@@ -192,8 +168,7 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
 
     private async ValueTask<DnsRequest?> ReceiveRequest(DnsServerTransportConnection connection, CancellationToken cancellationToken)
     {
-        var transportRequest = await ReceiveTransportRequest(connection, cancellationToken).ConfigureAwait(false);
-        if (transportRequest is null)
+        if (await ReceiveTransportRequest(connection, cancellationToken).ConfigureAwait(false) is not { } transportRequest)
             return null;
 
         try
@@ -203,7 +178,7 @@ public sealed partial class DnsServer : IDisposable, IAsyncDisposable
         }
         catch (FormatException e)
         {
-            if (_logger != null)
+            if (_logger is not null)
                 LogErrorDecodingDnsRequest(_logger, e, connection.RemoteEndPoint, connection.TransportType);
             return null;
         }
