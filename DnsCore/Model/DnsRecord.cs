@@ -11,7 +11,7 @@ public abstract class DnsRecord(DnsName name, DnsRecordType recordType, DnsClass
 
     private protected abstract string DataToString();
 
-    public override string ToString() => $"{base.ToString()} {(uint)ttl.TotalSeconds,5} {Data}";
+    public override string ToString() => $"{base.ToString()} {(uint)ttl.TotalSeconds,-5} {Data}";
 }
 
 public abstract class DnsRecord<T>(DnsName name, T data, DnsRecordType recordType, DnsClass @class, TimeSpan ttl)

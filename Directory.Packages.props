@@ -4,10 +4,15 @@
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
   <ItemGroup>
+    <PackageVersion Include="CSnakes.Runtime" Version="1.2.1" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.2" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.2" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.2" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="10.0.2" />
     <PackageVersion Include="Microsoft.Extensions.Primitives" Version="10.0.2" />
     <PackageVersion Include="MSTest" Version="4.0.2" />
     <PackageVersion Include="NuGet.Versioning" Version="7.0.1" />
+    <PackageVersion Include="RentedListCore" Version="0.1.6" />
+    <PackageVersion Include="System.CommandLine" Version="2.0.2" />
   </ItemGroup>
 </Project>

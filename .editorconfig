@@ -20,6 +20,7 @@ file_header_template = unset
 csharp_style_namespace_declarations = file_scoped
 
 dotnet_diagnostic.CA1720.severity = none
+dotnet_diagnostic.CA2007.severity = error
 dotnet_diagnostic.CS1591.severity = none
 dotnet_diagnostic.IDE0008.severity = none
 dotnet_diagnostic.IDE0011.severity = none
@@ -33,3 +34,8 @@ dotnet_diagnostic.IDE0061.severity = none
 [*{Tests,Benchmarks}.cs]
 dotnet_diagnostic.CA1305.severity = none
 dotnet_diagnostic.CA1707.severity = none
+dotnet_diagnostic.CA2007.severity = none
+
+
+[Program.cs]
+dotnet_diagnostic.CA2007.severity = none
