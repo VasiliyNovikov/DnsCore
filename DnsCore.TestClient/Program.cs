@@ -46,7 +46,7 @@ static async Task Run(IPAddress? server, ushort? port, DnsRecordType? type, stri
     try
     {
         var timer = Stopwatch.StartNew();
-        var response = await client.Query(DnsName.Parse(query), effectiveType);
+        var response = await client.Query(request);
         timer.Stop();
         Console.WriteLine($"Response:\n{response}");
         Console.WriteLine($"Time taken: {(int)timer.ElapsedMilliseconds} ms");
