@@ -37,11 +37,22 @@ internal sealed class UdpSocketPool : SocketPool
 
     public override async ValueTask<Socket> Acquire(CancellationToken cancellationToken)
     {
-        lock (_lock)
-            while (_sockets.TryDequeue(out var item))
-                if (_timer.Elapsed < item.Timestamp + _options.SocketLifeTime)
-                    return item.Socket;
-        return await base.Acquire(cancellationToken).ConfigureAwait(false);
+        using RentedList<Socket> socketsToDispose = [];
+        try
+        {
+            lock (_lock)
+                while (_sockets.TryDequeue(out var item))
+                    if (_timer.Elapsed < item.Timestamp + _options.SocketLifeTime)
+                        return item.Socket;
+                    else
+                        socketsToDispose.Add(item.Socket);
+            return await base.Acquire(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            foreach (var socket in socketsToDispose)
+                await base.Release(socket).ConfigureAwait(false);
+        }
     }
 
     public override async ValueTask Release(Socket socket)

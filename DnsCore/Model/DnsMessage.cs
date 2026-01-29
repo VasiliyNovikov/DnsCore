@@ -9,7 +9,7 @@ namespace DnsCore.Model;
 
 public abstract class DnsMessage
 {
-    public ushort Id { get; protected set; }
+    public ushort Id { get; }
     public DnsRequestType RequestType { get; set; }
     public bool RecursionDesired { get; set; }
 

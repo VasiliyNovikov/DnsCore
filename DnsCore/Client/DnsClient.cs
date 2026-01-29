@@ -18,10 +18,13 @@ public sealed class DnsClient : IAsyncDisposable
     private readonly DnsClientOptions _options;
     private readonly DnsResolver[] _defaultResolvers;
     private readonly DnsResolver[]? _tcpResolvers;
-    private int _transportIndex = -1;
+    private uint _transportIndex = uint.MaxValue;
 
     public DnsClient(DnsTransportType transportType, EndPoint[] serverEndPoints, DnsClientOptions? options = null)
     {
+        ArgumentNullException.ThrowIfNull(serverEndPoints);
+        ArgumentOutOfRangeException.ThrowIfZero(serverEndPoints.Length);
+
         _options = options ?? new();
         _options.Validate();
         _defaultResolvers = new DnsResolver[serverEndPoints.Length];
@@ -122,7 +125,7 @@ public sealed class DnsClient : IAsyncDisposable
                     var response = await ((Task<DnsResponse>)completedTask).ConfigureAwait(false);
                     if (response.Truncated)
                     {
-                        resolvers = _tcpResolvers ?? throw new DnsResponseTruncatedException();
+                        resolvers = _tcpResolvers ?? throw new DnsResponseTruncatedException(response);
                         if (tasks.Count > 1)
                         {
                             unobservedTasks.AddRange(tasks[1..]);
@@ -137,7 +140,7 @@ public sealed class DnsClient : IAsyncDisposable
                         return response;
 
                     if (response.Status != DnsResponseStatus.ServerFailure || failureRetryCount++ == _options.FailureRetryCount)
-                        throw new DnsResponseStatusException(response.Status);
+                        throw new DnsResponseStatusException(response);
                 }
                 catch (DnsSocketException)
                 {

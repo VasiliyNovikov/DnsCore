@@ -67,11 +67,10 @@ internal static class DnsSocketExtensions
 
         private async ValueTask SendExactly(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken)
         {
-            while (!buffer.IsEmpty)
                 try
                 {
-                    var sentBytes = await socket.SendAsync(buffer, SocketFlags.None, cancellationToken).ConfigureAwait(false);
-                    buffer = buffer[sentBytes..];
+                    while (!buffer.IsEmpty)
+                        buffer = buffer[await socket.SendAsync(buffer, SocketFlags.None, cancellationToken).ConfigureAwait(false)..];
                 }
                 catch (SocketException e)
                 {
