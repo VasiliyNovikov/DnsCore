@@ -1,7 +1,5 @@
 using System;
 
-using DnsCore.Utils;
-
 namespace DnsCore.Client;
 
 public class DnsClientUdpOptions
@@ -43,7 +41,7 @@ public class DnsClientUdpOptions
         set
         {
             ArgumentOutOfRangeException.ThrowIfNegative(value);
-            ArgumentOutOfRangeException.ThrowIfGreaterThan(value, SocketIdleTime);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(value, SocketLifeTime);
             _socketIdleTime = value;
         }
     }

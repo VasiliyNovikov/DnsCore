@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Runtime.ExceptionServices;
@@ -9,6 +8,8 @@ using System.Threading.Tasks;
 using DnsCore.Client.Resolver;
 using DnsCore.Common;
 using DnsCore.Model;
+
+using RentedListCore;
 
 namespace DnsCore.Client;
 
@@ -88,7 +89,8 @@ public sealed class DnsClient : IAsyncDisposable
 
     private async ValueTask<DnsResponse> QueryWithConcurrentRetries(DnsRequest request, CancellationToken cancellationToken)
     {
-        List<Task> tasks = new(2) { Task.CompletedTask };
+        using RentedList<Task> tasks = new(2) { Task.CompletedTask };
+        using RentedList<Task> unobservedTasks = [];
         using var completionCancellation = new CancellationTokenSource();
         try
         {
@@ -101,7 +103,7 @@ public sealed class DnsClient : IAsyncDisposable
 
                 var resolver = resolvers[Interlocked.Increment(ref _transportIndex) % resolvers.Length];
                 tasks.Add(resolver.Resolve(request, completionCancellation.Token).AsTask());
-                var completedTask = await Task.WhenAny(tasks).ConfigureAwait(false);
+                var completedTask = await Task.WhenAny(tasks.Span).ConfigureAwait(false);
 
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -114,11 +116,18 @@ public sealed class DnsClient : IAsyncDisposable
 
                 try
                 {
+                    tasks.Remove(completedTask);
+
                     var response = await ((Task<DnsResponse>)completedTask).ConfigureAwait(false);
                     if (response.Truncated)
                     {
                         resolvers = _tcpResolvers ?? throw new DnsResponseTruncatedException();
-                        tasks.RemoveRange(1, tasks.Count - 1); // Clear all ongoing UDP requests
+                        if (tasks.Count > 1)
+                        {
+                            unobservedTasks.AddRange(tasks[1..]);
+                            tasks.Clear(); // Clear all ongoing UDP requests
+                            tasks.Add(Task.CompletedTask);
+                        }
                         continue;
                     }
 
@@ -127,8 +136,6 @@ public sealed class DnsClient : IAsyncDisposable
 
                     if (response.Status != DnsResponseStatus.ServerFailure || failureRetryCount++ == _options.FailureRetryCount)
                         throw new DnsResponseStatusException(response.Status);
-
-                    tasks.Remove(completedTask);
                 }
                 catch (DnsSocketException)
                 {
@@ -139,32 +146,39 @@ public sealed class DnsClient : IAsyncDisposable
         }
         finally
         {
+            tasks.AddRange(unobservedTasks);
             await completionCancellation.CancelAsync().ConfigureAwait(false);
-            List<Exception>? exceptions = null;
+            using RentedList<Exception> exceptions = [];
             foreach (var task in tasks)
             {
                 try
                 {
                     await task.ConfigureAwait(false);
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
+                    // Ignore
+                }
+                catch (OperationCanceledException) when (completionCancellation.IsCancellationRequested)
+                {
+                    // Ignore
                 }
                 catch (DnsException)
                 {
+                    // Ignore
                 }
                 catch (Exception e)
                 {
-                    (exceptions ??= []).Add(e);
+                    exceptions.Add(e);
                 }
             }
-
-            if (exceptions is not null)
+            switch (exceptions.Count)
             {
-#pragma warning disable CA2219
-                if (exceptions.Count == 1)
+                case 1:
                     ExceptionDispatchInfo.Capture(exceptions[0]).Throw();
-                else
+                    break;
+                case > 1:
+#pragma warning disable CA2219
                     throw new AggregateException(exceptions);
 #pragma warning restore CA2219
             }

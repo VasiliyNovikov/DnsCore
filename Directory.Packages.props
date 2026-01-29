@@ -12,6 +12,7 @@
     <PackageVersion Include="Microsoft.Extensions.Primitives" Version="10.0.2" />
     <PackageVersion Include="MSTest" Version="4.0.2" />
     <PackageVersion Include="NuGet.Versioning" Version="7.0.1" />
+    <PackageVersion Include="RentedListCore" Version="0.1.6" />
     <PackageVersion Include="System.CommandLine" Version="2.0.2" />
   </ItemGroup>
 </Project>

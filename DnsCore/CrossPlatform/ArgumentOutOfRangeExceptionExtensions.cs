@@ -1,7 +1,6 @@
-using System;
 using System.Runtime.CompilerServices;
 
-namespace DnsCore.Utils;
+namespace System;
 
 internal static class ArgumentOutOfRangeExceptionExtensions
 {

@@ -6,6 +6,8 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
+using RentedListCore;
+
 namespace DnsCore.Client.Resolver;
 
 internal sealed class UdpSocketPool : SocketPool
@@ -60,7 +62,7 @@ internal sealed class UdpSocketPool : SocketPool
             {
                 await Task.Delay(_options.SocketIdleTime * 0.5, _cleanupCancellation.Token).ConfigureAwait(false);
                 var now = _timer.Elapsed;
-                List<Socket>? socketsToDispose = null;
+                using RentedList<Socket> socketsToDispose = [];
                 lock (_lock)
                     while (_sockets.TryPeek(out var item))
                     {
@@ -69,18 +71,18 @@ internal sealed class UdpSocketPool : SocketPool
                             lifetime > _options.SocketIdleTime && _sockets.Count > _options.MinSocketCount)
                         {
                             _sockets.Dequeue();
-                            (socketsToDispose ??= new List<Socket>()).Add(item.Socket);
+                            socketsToDispose.Add(item.Socket);
                             continue;
                         }
                         break;
                     }
-                if (socketsToDispose is not null)
-                    foreach (var socket in socketsToDispose)
-                        await base.Release(socket).ConfigureAwait(false);
+                foreach (var socket in socketsToDispose)
+                    await base.Release(socket).ConfigureAwait(false);
             }
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (_cleanupCancellation.IsCancellationRequested)
         {
+            // Ignore
         }
     }
 }

@@ -1,7 +1,5 @@
 using System;
 
-using DnsCore.Utils;
-
 namespace DnsCore.Client;
 
 public class DnsClientOptions
