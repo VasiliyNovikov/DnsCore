@@ -66,6 +66,7 @@ public class DnsServerTests
             }
             catch (OperationCanceledException) when (serverCancellation.IsCancellationRequested)
             {
+                // Ignore
             }
         }
 

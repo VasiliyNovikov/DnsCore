@@ -17,7 +17,7 @@ var addressOption = new Option<string>("-a", "--address") { Description = "DNS s
 var portOption = new Option<ushort?>("-p", "--port") { Description = "DNS server port", Arity = ArgumentArity.ZeroOrOne };
 var transportOption = new Option<DnsTransportType?>("-t", "--transport") { Description = "DNS transport type", Arity = ArgumentArity.ZeroOrOne };
 
-var rootCommand = new RootCommand("Test DNS Client");
+var rootCommand = new RootCommand("Test DNS Server");
 rootCommand.Options.Add(addressOption);
 rootCommand.Options.Add(portOption);
 rootCommand.Options.Add(transportOption);
