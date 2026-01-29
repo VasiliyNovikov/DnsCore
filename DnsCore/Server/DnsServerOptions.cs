@@ -36,7 +36,7 @@ public class DnsServerOptions
     }
 
     public DnsServerOptions(ushort port = DnsDefaults.Port)
-        : this([new IPEndPoint(IPAddress.Any, port), new IPEndPoint(IPAddress.IPv6Any, DnsDefaults.Port)])
+        : this([new IPEndPoint(IPAddress.Any, port), new IPEndPoint(IPAddress.IPv6Any, port)])
     {
     }
 

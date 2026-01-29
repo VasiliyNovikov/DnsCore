@@ -21,6 +21,8 @@ public sealed partial class DnsServer
 
     public DnsServer(Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, DnsServerOptions? options = null, ILogger? logger = null)
     {
+        ArgumentNullException.ThrowIfNull(handler);
+
         _handler = handler;
         _options = options ?? new DnsServerOptions();
         _options.Validate();
