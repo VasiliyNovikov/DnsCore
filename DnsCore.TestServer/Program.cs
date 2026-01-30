@@ -41,7 +41,7 @@ rootCommand.SetAction(async parseResult =>
     Console.WriteLine("Records:");
     foreach (var record in records)
         Console.WriteLine($"\t{record}");
-    Console.WriteLine("Press any key to exit...");
+    Console.WriteLine("Press Ctrl+C to shut down");
 
     var options = address is null ? new DnsServerOptions(port) : new DnsServerOptions(address, port);
     options.TransportType = transport;
