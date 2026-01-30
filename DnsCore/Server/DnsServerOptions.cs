@@ -5,6 +5,8 @@ using System.Net.Sockets;
 
 using DnsCore.Common;
 
+using Microsoft.Extensions.Logging;
+
 namespace DnsCore.Server;
 
 public class DnsServerOptions
@@ -21,6 +23,9 @@ public class DnsServerOptions
     public TimeSpan AcceptRetryTimeout { get; set; } = TimeSpan.FromMilliseconds(DefaultAcceptRetryTimeoutMilliseconds);
     public TimeSpan AcceptRetryInitialInterval { get; set; } = TimeSpan.FromMilliseconds(DefaultAcceptRetryInitialIntervalMilliseconds);
     public TimeSpan AcceptRetryMaxInterval { get; set; } = TimeSpan.FromMilliseconds(DefaultAcceptRetryMaxIntervalMilliseconds);
+    public LogLevel TransportErrorLogLevel { get; set; } = LogLevel.Warning;
+    public LogLevel DecodingErrorLogLevel { get; set; } = LogLevel.Information;
+    public LogLevel ResponseTruncationLogLevel { get; set; } = LogLevel.Information;
 
     public DnsServerOptions(params EndPoint[] endPoints)
     {

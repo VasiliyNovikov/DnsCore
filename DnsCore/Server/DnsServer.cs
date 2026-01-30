@@ -79,7 +79,7 @@ public sealed partial class DnsServer
                 catch (DnsServerTransportException e)
                 {
                     if (_logger is not null)
-                        LogErrorReceivingDnsRequest(_logger, e);
+                        LogErrorReceivingDnsRequest(_logger, _options.TransportErrorLogLevel, e);
 
                     if (!e.IsTransient)
                         throw;
@@ -121,7 +121,7 @@ public sealed partial class DnsServer
         catch (DnsServerTransportException e)
         {
             if (_logger is not null)
-                LogErrorReceivingDnsRequest(_logger, e);
+                LogErrorReceivingDnsRequest(_logger, _options.TransportErrorLogLevel, e);
             return null;
         }
     }
@@ -139,7 +139,7 @@ public sealed partial class DnsServer
         catch (FormatException e)
         {
             if (_logger is not null)
-                LogErrorDecodingDnsRequest(_logger, e, connection.RemoteEndPoint, connection.TransportType);
+                LogErrorDecodingDnsRequest(_logger, _options.DecodingErrorLogLevel, e, connection.RemoteEndPoint, connection.TransportType);
             return null;
         }
     }
@@ -192,7 +192,7 @@ public sealed partial class DnsServer
                     if (!response.Truncated)
                     {
                         if (_logger is not null)
-                            LogErrorDnsResponseTruncated(_logger, connection.RemoteEndPoint, connection.TransportType, response);
+                            LogErrorDnsResponseTruncated(_logger, _options.ResponseTruncationLogLevel, connection.RemoteEndPoint, connection.TransportType, response);
 
                         response = request.Reply();
                         response.Truncated = true;
@@ -216,7 +216,7 @@ public sealed partial class DnsServer
         catch (DnsServerTransportException e)
         {
             if (_logger is not null)
-                LogErrorSendingDnsResponse(_logger, e, connection.RemoteEndPoint, connection.TransportType, response);
+                LogErrorSendingDnsResponse(_logger, _options.TransportErrorLogLevel, e, connection.RemoteEndPoint, connection.TransportType, response);
         }
     }
 
@@ -231,17 +231,17 @@ public sealed partial class DnsServer
     [LoggerMessage(LogLevel.Debug, "Accepting connections on {EndPoint} {TransportType}")]
     private static partial void LogAcceptingConnections(ILogger logger, EndPoint endPoint, DnsTransportType transportType);
 
-    [LoggerMessage(LogLevel.Error, "Error receiving DNS request")]
-    private static partial void LogErrorReceivingDnsRequest(ILogger logger, Exception e);
+    [LoggerMessage("Error receiving DNS request")]
+    private static partial void LogErrorReceivingDnsRequest(ILogger logger, LogLevel logLevel, Exception e);
 
-    [LoggerMessage(LogLevel.Error, "Error sending DNS response to {RemoteEndPoint} {TransportType}:\n{Response}")]
-    private static partial void LogErrorSendingDnsResponse(ILogger logger, Exception e, EndPoint remoteEndPoint, DnsTransportType transportType, DnsResponse response);
+    [LoggerMessage("Error sending DNS response to {RemoteEndPoint} {TransportType}:\n{Response}")]
+    private static partial void LogErrorSendingDnsResponse(ILogger logger, LogLevel logLevel, Exception e, EndPoint remoteEndPoint, DnsTransportType transportType, DnsResponse response);
 
-    [LoggerMessage(LogLevel.Error, "Error decoding DNS request from {RemoteEndPoint} {TransportType}")]
-    private static partial void LogErrorDecodingDnsRequest(ILogger logger, Exception e, EndPoint remoteEndPoint, DnsTransportType transportType);
+    [LoggerMessage("Error decoding DNS request from {RemoteEndPoint} {TransportType}")]
+    private static partial void LogErrorDecodingDnsRequest(ILogger logger, LogLevel logLevel, Exception e, EndPoint remoteEndPoint, DnsTransportType transportType);
 
-    [LoggerMessage(LogLevel.Error, "Truncated DNS response to {RemoteEndPoint} {TransportType}:\n{Response}")]
-    private static partial void LogErrorDnsResponseTruncated(ILogger logger, EndPoint remoteEndPoint, DnsTransportType transportType, DnsResponse response);
+    [LoggerMessage("Truncated DNS response to {RemoteEndPoint} {TransportType}:\n{Response}")]
+    private static partial void LogErrorDnsResponseTruncated(ILogger logger, LogLevel logLevel, EndPoint remoteEndPoint, DnsTransportType transportType, DnsResponse response);
 
     [LoggerMessage(LogLevel.Critical, "Error running DNS server on {TransportType}")]
     private static partial void LogErrorRunningDnsServer(ILogger logger, Exception e, DnsTransportType transportType);
