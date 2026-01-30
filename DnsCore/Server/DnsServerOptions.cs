@@ -12,7 +12,9 @@ public class DnsServerOptions
     private const int DefaultAcceptRetryTimeoutMilliseconds = 10000;
     private const int DefaultAcceptRetryInitialIntervalMilliseconds = 10;
     private const int DefaultAcceptRetryMaxIntervalMilliseconds = DefaultAcceptRetryTimeoutMilliseconds / 2;
-    private static readonly IPAddress[] DefaultListenAddresses = Socket.OSSupportsIPv6 ? [IPAddress.Any, IPAddress.IPv6Any] : [IPAddress.Any];
+    private static readonly IPAddress[] DefaultListenAddresses4 = Socket.OSSupportsIPv4 ? [IPAddress.Any] : [];
+    private static readonly IPAddress[] DefaultListenAddresses6 = Socket.OSSupportsIPv6 ? [IPAddress.IPv6Any] : [];
+    private static readonly IPAddress[] DefaultListenAddresses = [..DefaultListenAddresses4, ..DefaultListenAddresses6];
 
     public DnsTransportType TransportType { get; set; } = DnsTransportType.All;
     public EndPoint[] EndPoints { get; }
