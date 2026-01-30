@@ -38,18 +38,36 @@ public class DnsServerTests
     {
         DnsQuestion? actualQuestion = null;
 
-        await using var server = new DnsServer(ServerAddress, Port, transportType, ProcessRequest, Logger);
-        server.Start();
-
-        bool[] useTcpParams = transportType >= DnsTransportType.All ? [false, true] : [transportType == DnsTransportType.TCP];
-        foreach (var useTcp in useTcpParams)
+        using var serverCancellation = new CancellationTokenSource();
+        var server = new DnsServer(ProcessRequest, new(ServerAddress, Port) { TransportType = transportType }, Logger);
+        var serverTask = server.Run(serverCancellation.Token);
+        try
         {
-            var actualAnswers = await Resolve(question.Name.ToString(), question.RecordType, useTcp);
 
-            Assert.AreEqual(question, actualQuestion);
-            Assert.HasCount(answers.Length, actualAnswers);
-            for (var i = 0; i < answers.Length; ++i)
-                DnsAssert.AreEqual(answers[i], actualAnswers[i]);
+            bool[] useTcpParams = transportType >= DnsTransportType.All
+                ? [false, true]
+                : [transportType == DnsTransportType.TCP];
+            foreach (var useTcp in useTcpParams)
+            {
+                var actualAnswers = await Resolve(question.Name.ToString(), question.RecordType, useTcp);
+
+                Assert.AreEqual(question, actualQuestion);
+                Assert.HasCount(answers.Length, actualAnswers);
+                for (var i = 0; i < answers.Length; ++i)
+                    DnsAssert.AreEqual(answers[i], actualAnswers[i]);
+            }
+        }
+        finally
+        {
+            await serverCancellation.CancelAsync();
+            try
+            {
+                await serverTask;
+            }
+            catch (OperationCanceledException) when (serverCancellation.IsCancellationRequested)
+            {
+                // Ignore
+            }
         }
 
         return;

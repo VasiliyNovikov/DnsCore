@@ -22,12 +22,15 @@ public class DnsClientTests
 {
     private static readonly ITestServer PyServer;
     private const ushort TestDnsServerPort = 12353;
-    private static readonly DnsClientOptions TestDnsClientOptions = new()
-    {
-        InitialRetryDelay = TimeSpan.FromMilliseconds(10),
-        RequestTimeout = TimeSpan.FromMilliseconds(100),
-        FailureRetryCount = 2
-    };
+
+    private static DnsClientOptions GetTestDnsClientOptions(DnsTransportType transportType) =>
+        new()
+        {
+            TransportType = transportType,
+            InitialRetryDelay = TimeSpan.FromMilliseconds(10),
+            RequestTimeout = TimeSpan.FromMilliseconds(100),
+            FailureRetryCount = 2
+        };
 
     static DnsClientTests()
     {
@@ -73,7 +76,7 @@ public class DnsClientTests
 
         await WithTestDnsServer(async () =>
         {
-            await using var client = new DnsClient(transportType, IPAddress.Loopback, TestDnsServerPort, TestDnsClientOptions);
+            await using var client = new DnsClient(IPAddress.Loopback, TestDnsServerPort, GetTestDnsClientOptions(transportType));
             var response = await client.Query(expectedRequest);
             Assert.AreEqual(DnsResponseStatus.Ok, response.Status);
             Assert.HasCount(1, response.Answers);
@@ -93,7 +96,7 @@ public class DnsClientTests
 
         await WithTestDnsServer(async () =>
         {
-            await using var client = new DnsClient(transportType, IPAddress.Loopback, TestDnsServerPort, TestDnsClientOptions);
+            await using var client = new DnsClient(IPAddress.Loopback, TestDnsServerPort, GetTestDnsClientOptions(transportType));
             var response = await client.Query(expectedRequest);
             Assert.AreEqual(DnsResponseStatus.Ok, response.Status);
             Assert.HasCount(1, response.Answers);
@@ -112,7 +115,7 @@ public class DnsClientTests
 
         await WithTestDnsServer(async () =>
         {
-            await using var client = new DnsClient(transportType, IPAddress.Loopback, TestDnsServerPort, TestDnsClientOptions);
+            await using var client = new DnsClient(IPAddress.Loopback, TestDnsServerPort, GetTestDnsClientOptions(transportType));
             await Assert.ThrowsExactlyAsync<DnsResponseTruncatedException>(async () => await client.Query(expectedRequest));
         }, [truncatedResponse, successfulResponse]);
     }
@@ -131,7 +134,7 @@ public class DnsClientTests
 
         await WithTestDnsServer(async () =>
         {
-            await using var client = new DnsClient(transportType, IPAddress.Loopback, TestDnsServerPort, TestDnsClientOptions);
+            await using var client = new DnsClient(IPAddress.Loopback, TestDnsServerPort, GetTestDnsClientOptions(transportType));
             var response = await client.Query(expectedRequest);
             Assert.AreEqual(DnsResponseStatus.Ok, response.Status);
             Assert.HasCount(1, response.Answers);
@@ -151,7 +154,7 @@ public class DnsClientTests
 
         await WithTestDnsServer(async () =>
         {
-            await using var client = new DnsClient(transportType, IPAddress.Loopback, TestDnsServerPort, TestDnsClientOptions);
+            await using var client = new DnsClient(IPAddress.Loopback, TestDnsServerPort, GetTestDnsClientOptions(transportType));
             var error = await Assert.ThrowsExactlyAsync<DnsResponseStatusException>(async () => await client.Query(expectedRequest));
             Assert.AreEqual(DnsResponseStatus.ServerFailure, error.Status);
         }, [failureResponse, failureResponse, failureResponse, expectedRequest.Reply()]);
@@ -169,7 +172,7 @@ public class DnsClientTests
 
         await WithTestDnsServer(async () =>
         {
-            await using var client = new DnsClient(transportType, IPAddress.Loopback, TestDnsServerPort, TestDnsClientOptions);
+            await using var client = new DnsClient(IPAddress.Loopback, TestDnsServerPort, GetTestDnsClientOptions(transportType));
             var error = await Assert.ThrowsExactlyAsync<DnsResponseStatusException>(async () => await client.Query(expectedRequest));
             Assert.AreEqual(DnsResponseStatus.NameError, error.Status);
         }, [expectedResponse]);
@@ -181,7 +184,7 @@ public class DnsClientTests
     [DataRow(DnsTransportType.All)]
     public async Task DnsClient_Timeout(DnsTransportType transportType)
     {
-        await using var client = new DnsClient(transportType, IPAddress.Parse("203.0.113.1"), TestDnsServerPort, TestDnsClientOptions);
+        await using var client = new DnsClient(IPAddress.Parse("203.0.113.1"), GetTestDnsClientOptions(transportType));
         await Assert.ThrowsExactlyAsync<TimeoutException>(async () => await client.Query(DnsName.Parse("unknown.com"), DnsRecordType.A));
     }
 }
