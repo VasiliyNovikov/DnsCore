@@ -40,8 +40,7 @@ public sealed partial class DnsServer
             await ServerTaskScheduler.Run(async (scheduler, ct) =>
             {
                 foreach (var transport in DnsServerTransport.Create(_options.TransportType, _options.EndPoints))
-                    scheduler.Enqueue(async (s, ct) => await AcceptConnections(s, transport, ct).ConfigureAwait(false));
-                await Task.Delay(Timeout.Infinite, ct).ConfigureAwait(false);
+                    await scheduler.Enqueue(async (s, ct) => await AcceptConnections(s, transport, ct).ConfigureAwait(false)).ConfigureAwait(false);
             }, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
@@ -74,7 +73,7 @@ public sealed partial class DnsServer
                 {
                     var connection = await serverTransport.Accept(cancellationToken).ConfigureAwait(false);
                     retryInterval = TimeSpan.Zero;
-                    scheduler.Enqueue(async (_, ct) => await ProcessRequests(connection, ct).ConfigureAwait(false));
+                    await scheduler.Enqueue(async (_, ct) => await ProcessRequests(connection, ct).ConfigureAwait(false)).ConfigureAwait(false);
                 }
                 catch (DnsServerTransportException e)
                 {
