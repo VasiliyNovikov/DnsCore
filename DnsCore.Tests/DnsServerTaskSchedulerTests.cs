@@ -15,13 +15,16 @@ public class DnsServerTaskSchedulerTests
     public async Task Run_ExecutesSingleTaskSuccessfully()
     {
         using var cts = new CancellationTokenSource();
+        var executed = false;
         var e = await Assert.ThrowsExactlyAsync<OperationCanceledException>(() =>
             ServerTaskScheduler.Run(async (_, _) =>
             {
                 await Task.Yield();
+                executed = true;
                 _ = cts.CancelAsync(); // Otherwise it would deadlock
             }, cts.Token));
         Assert.AreEqual(cts.Token, e.CancellationToken);
+        Assert.IsTrue(executed);
     }
 
     [TestMethod]
