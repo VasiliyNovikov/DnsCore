@@ -22,9 +22,20 @@ internal class ServerTaskScheduler
     {
         if (_cancellationToken.IsCancellationRequested)
             return;
+
+        Task scheduledTask;
         try
         {
-            await _tasks.WriteAsync(task(this, _cancellationToken).AsTask()).ConfigureAwait(false);
+            scheduledTask = task(this, _cancellationToken).AsTask();
+        }
+        catch (Exception e)
+        {
+            scheduledTask = Task.FromException(e);
+        }
+
+        try
+        {
+            await _tasks.WriteAsync(scheduledTask).ConfigureAwait(false);
         }
         catch (ChannelClosedException)
         {
@@ -39,13 +50,17 @@ internal class ServerTaskScheduler
         var scheduler = new ServerTaskScheduler(tasks.Writer, stopCancellation.Token);
         HashSet<Task> runningTasks = [startTask(scheduler, stopCancellation.Token).AsTask()];
         var exceptions = new List<Exception>();
+        var waitToReadTask = Task.CompletedTask;
         while (true)
         {
             while (tasks.Reader.TryRead(out var task))
                 runningTasks.Add(task);
 
-            if (!stopCancellation.IsCancellationRequested)
-                runningTasks.Add(tasks.Reader.WaitToReadAsync(cancellationToken).AsTask());
+            if (!stopCancellation.IsCancellationRequested && waitToReadTask.IsCompleted)
+            {
+                waitToReadTask = tasks.Reader.WaitToReadAsync(stopCancellation.Token).AsTask();
+                runningTasks.Add(waitToReadTask);
+            }
 
             if (runningTasks.Count == 0)
                 break;
