@@ -14,7 +14,7 @@ public class DnsServerTaskSchedulerTests
     [TestMethod]
     public async Task Run_ExecutesSingleTaskSuccessfully()
     {
-        CancellationTokenSource cts = new();
+        using var cts = new CancellationTokenSource();
         var e = await Assert.ThrowsExactlyAsync<OperationCanceledException>(() =>
             ServerTaskScheduler.Run(async (_, _) =>
             {

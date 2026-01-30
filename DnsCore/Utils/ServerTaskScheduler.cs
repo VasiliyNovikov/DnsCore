@@ -7,42 +7,45 @@ using System.Threading.Tasks;
 
 namespace DnsCore.Utils;
 
-internal class ServerTaskScheduler : IDisposable
+internal class ServerTaskScheduler
 {
-    private readonly Channel<Task> _tasks = Channel.CreateUnbounded<Task>();
-    private readonly CancellationToken _externalToken;
-    private readonly CancellationTokenSource _stopCts;
+    private readonly ChannelWriter<Task> _tasks;
+    private readonly CancellationToken _cancellationToken;
 
-    private ServerTaskScheduler(CancellationToken externalToken)
+    private ServerTaskScheduler(ChannelWriter<Task> tasks, CancellationToken cancellationToken)
     {
-        _externalToken = externalToken;
-        _stopCts = CancellationTokenSource.CreateLinkedTokenSource(externalToken);
+        _tasks = tasks;
+        _cancellationToken = cancellationToken;
     }
 
-    public void Dispose() => _stopCts.Dispose();
-
-    public async ValueTask Enqueue(Func<ServerTaskScheduler, CancellationToken, ValueTask> task) => await _tasks.Writer.WriteAsync(EnqueueWrapper(task)).ConfigureAwait(false);
+    public async ValueTask Enqueue(Func<ServerTaskScheduler, CancellationToken, ValueTask> task)
+    {
+        if (_cancellationToken.IsCancellationRequested)
+            return;
+        try
+        {
+            await _tasks.WriteAsync(task(this, _cancellationToken).AsTask()).ConfigureAwait(false);
+        }
+        catch (ChannelClosedException)
+        {
+            // Ignore
+        }
+    }
 
     public static async Task Run(Func<ServerTaskScheduler, CancellationToken, ValueTask> startTask, CancellationToken cancellationToken)
     {
-        using var scheduler = new ServerTaskScheduler(cancellationToken);
-        await scheduler.Enqueue(startTask).ConfigureAwait(false);
-        await scheduler.Run().ConfigureAwait(false);
-    }
-
-    private async Task EnqueueWrapper(Func<ServerTaskScheduler, CancellationToken, ValueTask> taskFunc) => await taskFunc(this, _stopCts.Token).ConfigureAwait(false);
-
-    private async Task Run()
-    {
+        var tasks = Channel.CreateUnbounded<Task>();
+        using var stopCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var scheduler = new ServerTaskScheduler(tasks.Writer, stopCancellation.Token);
+        HashSet<Task> runningTasks = [startTask(scheduler, stopCancellation.Token).AsTask()];
         var exceptions = new List<Exception>();
-        var runningTasks = new HashSet<Task>();
         while (true)
         {
-            while (_tasks.Reader.TryRead(out var task))
+            while (tasks.Reader.TryRead(out var task))
                 runningTasks.Add(task);
 
-            if (!_stopCts.IsCancellationRequested)
-                runningTasks.Add(_tasks.Reader.WaitToReadAsync(_externalToken).AsTask());
+            if (!stopCancellation.IsCancellationRequested)
+                runningTasks.Add(tasks.Reader.WaitToReadAsync(cancellationToken).AsTask());
 
             if (runningTasks.Count == 0)
                 break;
@@ -50,23 +53,23 @@ internal class ServerTaskScheduler : IDisposable
             var completedTask = await Task.WhenAny(runningTasks).ConfigureAwait(false);
             runningTasks.Remove(completedTask);
 
-            if (!completedTask.IsFaulted && !_externalToken.IsCancellationRequested)
+            if (!completedTask.IsFaulted && !cancellationToken.IsCancellationRequested)
                 continue;
 
             if (completedTask.IsFaulted)
                 exceptions.AddRange(completedTask.Exception.Flatten().InnerExceptions);
 
-            if (_stopCts.IsCancellationRequested)
+            if (stopCancellation.IsCancellationRequested)
                 continue;
 
-            _tasks.Writer.Complete();
-            await _stopCts.CancelAsync().ConfigureAwait(false);
+            tasks.Writer.Complete();
+            await stopCancellation.CancelAsync().ConfigureAwait(false);
         }
 
         switch (exceptions.Count)
         {
             case 0:
-                _externalToken.ThrowIfCancellationRequested();
+                cancellationToken.ThrowIfCancellationRequested();
                 break;
             case 1:
                 ExceptionDispatchInfo.Throw(exceptions[0]);
