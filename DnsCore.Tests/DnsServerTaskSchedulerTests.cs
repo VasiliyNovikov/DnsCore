@@ -14,12 +14,16 @@ public class DnsServerTaskSchedulerTests
     [TestMethod]
     public async Task Run_ExecutesSingleTaskSuccessfully()
     {
+        using var cts = new CancellationTokenSource();
         var executed = false;
-        await ServerTaskScheduler.Run(async (_, _) =>
-        {
-            await Task.Yield();
-            executed = true;
-        });
+        var e = await Assert.ThrowsExactlyAsync<OperationCanceledException>(() =>
+            ServerTaskScheduler.Run(async (_, _) =>
+            {
+                await Task.Yield();
+                executed = true;
+                _ = cts.CancelAsync(); // Otherwise it would deadlock
+            }, cts.Token));
+        Assert.AreEqual(cts.Token, e.CancellationToken);
         Assert.IsTrue(executed);
     }
 
@@ -31,7 +35,7 @@ public class DnsServerTaskSchedulerTests
             {
                 await Task.Yield();
                 throw new InvalidOperationException();
-            }));
+            }, CancellationToken.None));
     }
 
     [TestMethod]
@@ -42,20 +46,20 @@ public class DnsServerTaskSchedulerTests
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
             await ServerTaskScheduler.Run(async (scheduler, _) =>
             {
-                scheduler.Enqueue(async (_, _) =>
+                await scheduler.Enqueue(async (_, _) =>
                 {
                     await Task.Yield();
                     throw new InvalidOperationException();
                 });
 
-                scheduler.Enqueue(async (_, ct) =>
+                await scheduler.Enqueue(async (_, ct) =>
                 {
                     await Task.Delay(100, ct);
                     secondTaskExecuted = true;
                 });
 
                 await Task.Yield();
-            }));
+            }, CancellationToken.None));
 
         Assert.IsFalse(secondTaskExecuted);
     }
