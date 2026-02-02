@@ -8,5 +8,5 @@ namespace DnsCore.Server;
 
 internal class DnsServerDelegatingHandler(Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler) : IDnsServerHandler
 {
-    public async ValueTask<DnsResponse> Handle(DnsRequest request, CancellationToken cancellationToken) => await handler(request, cancellationToken).ConfigureAwait(false);
+    public ValueTask<DnsResponse> Handle(DnsRequest request, CancellationToken cancellationToken) => handler(request, cancellationToken);
 }

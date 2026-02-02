@@ -22,13 +22,13 @@ public static class DnsServiceHostingExtensions
             where THandler : class, IDnsServerHandler
         {
             return services.AddSingleton<IDnsServerHandler, THandler>()
-                           .AddDns();
+                           .AddDns(options);
         }
 
         public IServiceCollection AddDns(Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, DnsServerOptions? options = null)
         {
             return services.AddSingleton<IDnsServerHandler>(_ => new DnsServerDelegatingHandler(handler))
-                           .AddDns();
+                           .AddDns(options);
         }
 
     }
