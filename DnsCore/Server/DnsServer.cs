@@ -15,11 +15,11 @@ namespace DnsCore.Server;
 
 public sealed partial class DnsServer
 {
-    private readonly Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> _handler;
+    private readonly IDnsServerHandler _handler;
     private readonly DnsServerOptions _options;
     private readonly ILogger? _logger;
 
-    public DnsServer(Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, DnsServerOptions? options = null, ILogger? logger = null)
+    public DnsServer(IDnsServerHandler handler, DnsServerOptions? options = null, ILogger? logger = null)
     {
         ArgumentNullException.ThrowIfNull(handler);
 
@@ -29,7 +29,17 @@ public sealed partial class DnsServer
         _logger = logger;
     }
 
-    public DnsServer(Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, ILogger? logger = null) : this(handler, null, logger) { }
+    public DnsServer(Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, DnsServerOptions? options = null, ILogger? logger = null)
+        : this(new DnsServerDelegatingHandler(handler), options, logger)
+    {
+    }
+
+    public DnsServer(IDnsServerHandler handler, ILogger? logger = null) : this(handler, null, logger) { }
+
+    public DnsServer(Func<DnsRequest, CancellationToken, ValueTask<DnsResponse>> handler, ILogger? logger = null)
+        : this(new DnsServerDelegatingHandler(handler), logger)
+    {
+    }
 
     public async Task Run(CancellationToken cancellationToken = default)
     {
@@ -156,7 +166,7 @@ public sealed partial class DnsServer
         DnsResponse response;
         try
         {
-            response = await _handler(request, cancellationToken).ConfigureAwait(false);
+            response = await _handler.Handle(request, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception e)
         {
