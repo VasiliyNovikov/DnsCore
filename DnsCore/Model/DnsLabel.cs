@@ -33,24 +33,24 @@ public readonly struct DnsLabel
         if (label.Length > 0)
         {
             var span = label.AsSpan();
-            if (!IsLetterOrDigit(span[0]))
-                throw new ArgumentException("First character of the label must be an ASCII letter or digit", nameof(label));
+            if (!IsOuterChar(span[0]))
+                throw new ArgumentException("First character of the label must be an ASCII letter, digit, or underscore", nameof(label));
 
             if (label.Length > 1)
             {
                 for (var i = 1; i < label.Length - 1; ++i)
-                    if (!IsLetterOrDigitOrHyphen(span[i]))
-                        throw new ArgumentException("Middle characters of the label must be an ASCII letter or digit or hyphen", nameof(label));
+                    if (!IsInnerChar(span[i]))
+                        throw new ArgumentException("Middle characters of the label must be an ASCII letter, digit, hyphen, or underscore", nameof(label));
 
-                if (!IsLetterOrDigit(span[^1]))
-                    throw new ArgumentException("Last character of the label must be an ASCII letter or digit", nameof(label));
+                if (!IsOuterChar(span[^1]))
+                    throw new ArgumentException("Last character of the label must be an ASCII letter, digit, or underscore", nameof(label));
             }
         }
 
         return;
 
-        static bool IsLetterOrDigit(char c) => c is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9');
-        static bool IsLetterOrDigitOrHyphen(char c) => IsLetterOrDigit(c) || c == '-';
+        static bool IsOuterChar(char c) => c is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9') or '_';
+        static bool IsInnerChar(char c) => IsOuterChar(c) || c == '-';
     }
 
     internal static DnsLabel ParseCore(StringSegment label)
