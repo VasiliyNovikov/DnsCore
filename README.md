@@ -11,4 +11,4 @@
 - **UDP & TCP** — full support for both transport protocols
 - **Hosting integration** — `AddDns()` extensions for `Microsoft.Extensions.Hosting`
 - **Targets** — net8.0, net9.0, net10.0
-- **Platforms** — Linux x64, Linux arm64, Windows x64, macOS arm64
+- **Platforms** — Linux x64, Linux arm64, Windows x64, Windows arm64, macOS arm64

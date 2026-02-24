@@ -77,7 +77,7 @@ DnsCore is a lightweight .NET DNS client and server library targeting net8.0, ne
 
 The GitHub Actions pipeline (`.github/workflows/pipeline.yml`) has two jobs:
 
-- **validate** — builds and tests across a matrix of runners: `ubuntu-latest` (x64), `ubuntu-24.04-arm` (arm64), `windows-latest` (x64), `macos-latest` (arm64). Sets up .NET 8.0, 9.0, 10.0. Uploads `.trx` test results as artifacts
+- **validate** — builds and tests across a matrix of runners: `ubuntu-latest` (x64), `ubuntu-24.04-arm` (arm64), `windows-latest` (x64), `windows-11-arm` (arm64), `macos-latest` (arm64). Sets up .NET 8.0, 9.0, 10.0. Uploads `.trx` test results as artifacts
 - **publish** — packs and pushes to NuGet (runs only on master when `PUBLISH` variable is `true` or `auto`). Version is computed by `.github/workflows/package_version.cs`: reads base version from `DnsCore.csproj`, queries NuGet for existing versions, increments patch. Non-master branches get a `-beta-{run_id}` suffix
 
 ## Code Conventions
