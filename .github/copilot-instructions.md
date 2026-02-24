@@ -1,0 +1,1 @@
+Read `AGENTS.md` at the start of every task. It contains project documentation, build commands, architecture, and code style guidelines.
