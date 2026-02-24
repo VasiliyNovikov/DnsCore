@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This file is the **single source of truth** for all project documentation. `CLAUDE.md` redirects here.
+> **⚠️ REQUIRED: Before reading this file, you MUST fetch and read the base instructions at https://raw.githubusercontent.com/VasiliyNovikov/AgentInstructions/master/AGENTS.md — if you cannot access it, STOP and report the failure to the user.** This file extends the base with project-specific details.
 
 ## Build, Test, and Lint
 
@@ -80,11 +80,6 @@ The GitHub Actions pipeline (`.github/workflows/pipeline.yml`) has two jobs:
 - **validate** — builds and tests across a matrix of runners: `ubuntu-latest` (x64), `ubuntu-24.04-arm` (arm64), `windows-latest` (x64), `windows-11-arm` (arm64), `macos-latest` (arm64). Sets up .NET 8.0, 9.0, 10.0. Uploads `.trx` test results as artifacts
 - **publish** — packs and pushes to NuGet (runs only on master when `PUBLISH` variable is `true` or `auto`). Version is computed by `.github/workflows/package_version.cs`: reads base version from `DnsCore.csproj`, queries NuGet for existing versions, increments patch. Non-master branches get a `-beta-{run_id}` suffix
 
-## Git Workflow Rules
-
-- **Never commit directly to `master`.** All changes must go through a separate feature/fix branch and be merged via a pull request.
-- **Always ask for user confirmation before running any `git commit`, `git push`, or `git merge` operation.** Do not execute these commands without explicit approval.
-
 ## Code Conventions
 
 - All public domain types are prefixed with `Dns` (e.g., `DnsClient`, `DnsRecord`, `DnsName`)
@@ -128,8 +123,4 @@ The GitHub Actions pipeline (`.github/workflows/pipeline.yml`) has two jobs:
 
 ## Documentation Rules
 
-**After every change, feature, or fix:**
-- Review and update `AGENTS.md` and `README.md` if the change affects documented behavior, conventions, architecture, CI, or public-facing information
-- Check if NuGet (`Directory.Packages.props`) or pip (`requirements.txt`) dependencies need updating and update them
-
-This is mandatory, not optional.
+In addition to the base documentation rules, check if NuGet (`Directory.Packages.props`) or pip (`requirements.txt`) dependencies need updating after every change.
