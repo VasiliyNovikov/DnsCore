@@ -1,5 +1,5 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file is a redirect for Claude Code. **Do not add documentation here.**
 
-**You MUST read `AGENTS.md` at the start of every task.** It contains all project documentation, build commands, architecture, and code style guidelines.
+**`AGENTS.md` is the single source of truth** for all project documentation, build commands, architecture, CI, and code style guidelines. You MUST read it at the start of every task. All documentation updates go there, never here.
