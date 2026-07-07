@@ -25,6 +25,9 @@ internal static class DnsAssert
             case DnsRecordType.TXT:
                 Assert.AreEqual(((DnsTextRecord)expected).Data, ((DnsTextRecord)actual).Data);
                 break;
+            case DnsRecordType.SRV:
+                Assert.AreEqual(((DnsServiceRecord)expected).Data, ((DnsServiceRecord)actual).Data);
+                break;
             default:
                 CollectionAssert.AreEqual(((DnsRawRecord)expected).Data, ((DnsRawRecord)actual).Data);
                 break;

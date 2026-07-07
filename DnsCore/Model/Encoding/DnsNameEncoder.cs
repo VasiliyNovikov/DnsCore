@@ -27,6 +27,13 @@ internal static class DnsNameEncoder
             Encode(ref writer, parent);
     }
 
+    public static void EncodeUncompressed(ref DnsWriter writer, DnsName name)
+    {
+        DnsLabelEncoder.Encode(ref writer, name.Label);
+        if (name.Parent is { } parent)
+            EncodeUncompressed(ref writer, parent);
+    }
+
     public static DnsName Decode(ref DnsReader reader) => DecodeInternal(ref reader);
 
     private static DnsName DecodeInternal(ref DnsReader reader, int maxLength = DnsName.MaxLength, bool canStartWithCompression = true)

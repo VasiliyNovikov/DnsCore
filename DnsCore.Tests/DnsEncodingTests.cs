@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 
+using DnsCore.IO;
 using DnsCore.Model;
 using DnsCore.Model.Encoding;
 
@@ -21,7 +22,8 @@ public class DnsEncodingTests
             new DnsRequest(DnsName.Parse("www.example.com"), DnsRecordType.CNAME),
             new DnsRequest(DnsName.Parse("unknown.example.com"), DnsRecordType.A),
             new DnsRequest(DnsName.Parse("4.3.2.1.in-addr.arpa"), DnsRecordType.PTR),
-            new DnsRequest(DnsName.Parse("4.0.0.0.3.0.0.0.2.0.0.0.1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa"), DnsRecordType.PTR)
+            new DnsRequest(DnsName.Parse("4.0.0.0.3.0.0.0.2.0.0.0.1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa"), DnsRecordType.PTR),
+            new DnsRequest(DnsName.Parse("_ldap._tcp.example.com"), DnsRecordType.SRV)
         ];
 
         List<DnsResponse> responses = [
@@ -37,7 +39,9 @@ public class DnsEncodingTests
 
             requests[4].Reply(new DnsPtrRecord(DnsName.Parse("4.3.2.1.in-addr.arpa"), DnsName.Parse("host.example.com"), TimeSpan.FromSeconds(42))),
 
-            requests[5].Reply(new DnsPtrRecord(DnsName.Parse("4.0.0.0.3.0.0.0.2.0.0.0.1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa"), DnsName.Parse("host.example.com"), TimeSpan.FromSeconds(42)))
+            requests[5].Reply(new DnsPtrRecord(DnsName.Parse("4.0.0.0.3.0.0.0.2.0.0.0.1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa"), DnsName.Parse("host.example.com"), TimeSpan.FromSeconds(42))),
+
+            requests[6].Reply(new DnsServiceRecord(DnsName.Parse("_ldap._tcp.example.com"), 0, 5, 389, DnsName.Parse("host.example.com"), TimeSpan.FromSeconds(42)))
         ];
 
         List<DnsMessage> messages = [.. requests, .. responses];
@@ -102,6 +106,148 @@ public class DnsEncodingTests
                 });
             }
         }
+    }
+
+    [TestMethod]
+    public void Test_Encode_SrvTarget_IsNotCompressed()
+    {
+        var request = new DnsRequest(DnsName.Parse("_ldap._tcp.example.com"), DnsRecordType.SRV);
+        var message = request.Reply(new DnsServiceRecord(DnsName.Parse("_ldap._tcp.example.com"), 0, 5, 389, DnsName.Parse("host.example.com"), TimeSpan.FromSeconds(42)));
+        Span<byte> buffer = stackalloc byte[DnsDefaults.MaxUdpMessageSize];
+
+        var length = DnsMessageEncoder.Encode(buffer, message);
+        var messageSpan = buffer[..length];
+        var reader = new DnsReader(messageSpan);
+        _ = reader.Read<ushort>(); // ID
+        _ = reader.Read<ushort>(); // Flags
+        var questionCount = reader.Read<ushort>();
+        var answerCount = reader.Read<ushort>();
+        _ = reader.Read<ushort>(); // Authority count
+        _ = reader.Read<ushort>(); // Additional count
+        Assert.AreEqual(1, questionCount);
+        Assert.AreEqual(1, answerCount);
+
+        _ = DnsNameEncoder.Decode(ref reader);
+        _ = reader.Read<ushort>(); // Question type
+        _ = reader.Read<ushort>(); // Question class
+        _ = DnsNameEncoder.Decode(ref reader);
+        _ = reader.Read<ushort>(); // Answer type
+        _ = reader.Read<ushort>(); // Answer class
+        _ = reader.Read<uint>(); // TTL
+        var dataLength = reader.Read<ushort>();
+        var data = reader.Read(dataLength);
+        byte[] expectedParameters = [0x00, 0x00, 0x00, 0x05, 0x01, 0x85];
+        var expectedTarget = "\x0004host\x0007example\x0003com\0"u8;
+
+        Assert.AreEqual(6 + expectedTarget.Length, data.Length);
+        Assert.IsTrue(expectedParameters.SequenceEqual(data[..6]));
+        Assert.IsTrue(expectedTarget.SequenceEqual(data[6..]));
+        Assert.IsFalse(data[6..].Contains((byte)0xC0));
+    }
+
+    [TestMethod]
+    [DataRow(DnsRecordType.A)]
+    [DataRow(DnsRecordType.AAAA)]
+    [DataRow(DnsRecordType.CNAME)]
+    [DataRow(DnsRecordType.PTR)]
+    [DataRow(DnsRecordType.SRV)]
+    [DataRow(DnsRecordType.TXT)]
+    public void Test_Encode_RawData_ForKnownRecordType_DecodesTypedRecord(DnsRecordType recordType)
+    {
+        var name = DnsName.Parse("_ldap._tcp.example.com");
+        var request = new DnsRequest(name, recordType);
+        var expectedTarget = DnsName.Parse("host.example.com");
+        byte[] rawData = recordType switch
+        {
+            DnsRecordType.A => [0x01, 0x02, 0x03, 0x04],
+            DnsRecordType.AAAA => [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F],
+            DnsRecordType.CNAME or DnsRecordType.PTR => [
+                0x04, 0x68, 0x6F, 0x73, 0x74,
+                0x07, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65,
+                0x03, 0x63, 0x6F, 0x6D,
+                0x00
+            ],
+            DnsRecordType.SRV => (byte[])[
+                0x00, 0x00, 0x00, 0x05, 0x01, 0x85,
+                0x04, 0x68, 0x6F, 0x73, 0x74,
+                0x07, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65,
+                0x03, 0x63, 0x6F, 0x6D,
+                0x00
+            ],
+            DnsRecordType.TXT => [0x05, 0x68, 0x65, 0x6C, 0x6C, 0x6F],
+            _ => throw new ArgumentOutOfRangeException(nameof(recordType), recordType, null)
+        };
+        var message = request.Reply(new DnsRawRecord(name, rawData, recordType, DnsClass.IN, TimeSpan.FromSeconds(42)));
+        Span<byte> buffer = stackalloc byte[DnsDefaults.MaxUdpMessageSize];
+
+        var length = DnsMessageEncoder.Encode(buffer, message);
+        var actualResponse = DnsResponseEncoder.Decode(buffer[..length]);
+
+        Assert.HasCount(1, actualResponse.Answers);
+        var actualAnswer = actualResponse.Answers[0];
+        Assert.AreEqual(name, actualAnswer.Name);
+        Assert.AreEqual(recordType, actualAnswer.RecordType);
+        Assert.AreEqual(DnsClass.IN, actualAnswer.Class);
+        Assert.AreEqual(TimeSpan.FromSeconds(42), actualAnswer.Ttl);
+
+        switch (recordType)
+        {
+            case DnsRecordType.A:
+            case DnsRecordType.AAAA:
+                Assert.IsInstanceOfType<DnsAddressRecord>(actualAnswer);
+                CollectionAssert.AreEqual(rawData, ((DnsAddressRecord)actualAnswer).Data.GetAddressBytes());
+                break;
+            case DnsRecordType.CNAME:
+                Assert.IsInstanceOfType<DnsCNameRecord>(actualAnswer);
+                Assert.AreEqual(expectedTarget, ((DnsCNameRecord)actualAnswer).Data);
+                break;
+            case DnsRecordType.PTR:
+                Assert.IsInstanceOfType<DnsPtrRecord>(actualAnswer);
+                Assert.AreEqual(expectedTarget, ((DnsPtrRecord)actualAnswer).Data);
+                break;
+            case DnsRecordType.SRV:
+                Assert.IsInstanceOfType<DnsServiceRecord>(actualAnswer);
+                Assert.AreEqual(new DnsServiceRecordData(0, 5, 389, expectedTarget), ((DnsServiceRecord)actualAnswer).Data);
+                break;
+            case DnsRecordType.TXT:
+                Assert.IsInstanceOfType<DnsTextRecord>(actualAnswer);
+                Assert.AreEqual("hello", ((DnsTextRecord)actualAnswer).Data);
+                break;
+        }
+    }
+
+    [TestMethod]
+    public void Test_Decode_SrvData_WithTrailingBytes_Throws()
+    {
+        var request = new DnsRequest(DnsName.Parse("_ldap._tcp.example.com"), DnsRecordType.SRV);
+        var message = request.Reply(new DnsServiceRecord(DnsName.Parse("_ldap._tcp.example.com"), 0, 5, 389, DnsName.Parse("host.example.com"), TimeSpan.FromSeconds(42)));
+        var buffer = new byte[DnsDefaults.MaxUdpMessageSize];
+
+        var length = DnsMessageEncoder.Encode(buffer, message);
+        var reader = new DnsReader(buffer.AsSpan(0, length));
+        _ = reader.Read<ushort>();
+        _ = reader.Read<ushort>();
+        _ = reader.Read<ushort>();
+        _ = reader.Read<ushort>();
+        _ = reader.Read<ushort>();
+        _ = reader.Read<ushort>();
+        _ = DnsNameEncoder.Decode(ref reader);
+        _ = reader.Read<ushort>();
+        _ = reader.Read<ushort>();
+        _ = DnsNameEncoder.Decode(ref reader);
+        _ = reader.Read<ushort>();
+        _ = reader.Read<ushort>();
+        _ = reader.Read<uint>();
+        var dataLengthPosition = reader.Position;
+        var dataLength = reader.Read<ushort>();
+        Assert.AreEqual(length, reader.Position + dataLength);
+
+        ++dataLength;
+        buffer[dataLengthPosition] = (byte)(dataLength >> 8);
+        buffer[dataLengthPosition + 1] = (byte)dataLength;
+        buffer[length] = 0;
+
+        Assert.ThrowsExactly<FormatException>(() => DnsResponseEncoder.Decode(buffer.AsSpan(0, length + 1)));
     }
 
     [TestMethod]

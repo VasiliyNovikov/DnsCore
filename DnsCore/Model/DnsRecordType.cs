@@ -36,6 +36,8 @@ public enum DnsRecordType : ushort
     TXT = 16,
     // An IPv6 host address
     AAAA = 28,
+    // Server selection
+    SRV = 33,
     // A request for a transfer of an entire zone
     AXFR = 252,
     // A request for mailbox-related records (MB, MG or MR)

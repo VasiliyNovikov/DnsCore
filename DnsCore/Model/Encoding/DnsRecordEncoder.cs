@@ -19,6 +19,7 @@ internal static class DnsRecordEncoder
         RegisterTypeEncoder(DnsRecordType.AAAA, DnsRecordAddressDataEncoder.Instance);
         RegisterTypeEncoder(DnsRecordType.CNAME, DnsRecordCNameDataEncoder.Instance);
         RegisterTypeEncoder(DnsRecordType.PTR, DnsRecordPtrDataEncoder.Instance);
+        RegisterTypeEncoder(DnsRecordType.SRV, DnsRecordServiceDataEncoder.Instance);
         RegisterTypeEncoder(DnsRecordType.TXT, DnsRecordTextDataEncoder.Instance);
     }
 
