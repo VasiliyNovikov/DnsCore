@@ -157,27 +157,16 @@ public class DnsEncodingTests
         var name = DnsName.Parse("_ldap._tcp.example.com");
         var request = new DnsRequest(name, recordType);
         var expectedTarget = DnsName.Parse("host.example.com");
-        ReadOnlyMemory<byte> rawData = recordType switch
+        var rawData = recordType switch
         {
-            DnsRecordType.A => (byte[])[0x01, 0x02, 0x03, 0x04],
-            DnsRecordType.AAAA => [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F],
-            DnsRecordType.CNAME or DnsRecordType.PTR => [
-                0x04, 0x68, 0x6F, 0x73, 0x74,
-                0x07, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65,
-                0x03, 0x63, 0x6F, 0x6D,
-                0x00
-            ],
-            DnsRecordType.SRV => [
-                0x00, 0x00, 0x00, 0x05, 0x01, 0x85,
-                0x04, 0x68, 0x6F, 0x73, 0x74,
-                0x07, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65,
-                0x03, 0x63, 0x6F, 0x6D,
-                0x00
-            ],
-            DnsRecordType.TXT => [0x05, 0x68, 0x65, 0x6C, 0x6C, 0x6F],
+            DnsRecordType.A => "\x0001\x0002\x0003\x0004"u8.ToArray(),
+            DnsRecordType.AAAA => "\0\x0001\x0002\x0003\x0004\x0005\x0006\x0007\x0008\x0009\x000A\x000B\x000C\x000D\x000E\x000F"u8.ToArray(),
+            DnsRecordType.CNAME or DnsRecordType.PTR => "\x0004host\x0007example\x0003com\0"u8.ToArray(),
+            DnsRecordType.SRV => [.. "\0\0\0\x0005\x0001"u8, 0x85, .. "\x0004host\x0007example\x0003com\0"u8],
+            DnsRecordType.TXT => "\x0005hello"u8.ToArray(),
             _ => throw new ArgumentOutOfRangeException(nameof(recordType), recordType, null)
         };
-        var message = request.Reply(new DnsRawRecord(name, rawData.ToArray(), recordType, DnsClass.IN, TimeSpan.FromSeconds(42)));
+        var message = request.Reply(new DnsRawRecord(name, rawData, recordType, DnsClass.IN, TimeSpan.FromSeconds(42)));
         Span<byte> buffer = stackalloc byte[DnsDefaults.MaxUdpMessageSize];
 
         var length = DnsMessageEncoder.Encode(buffer, message);
@@ -195,7 +184,7 @@ public class DnsEncodingTests
             case DnsRecordType.A:
             case DnsRecordType.AAAA:
                 Assert.IsInstanceOfType<DnsAddressRecord>(actualAnswer);
-                CollectionAssert.AreEqual(rawData.ToArray(), ((DnsAddressRecord)actualAnswer).Data.GetAddressBytes());
+                CollectionAssert.AreEqual(rawData, ((DnsAddressRecord)actualAnswer).Data.GetAddressBytes());
                 break;
             case DnsRecordType.CNAME:
                 Assert.IsInstanceOfType<DnsCNameRecord>(actualAnswer);
