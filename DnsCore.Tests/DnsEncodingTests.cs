@@ -157,9 +157,9 @@ public class DnsEncodingTests
         var name = DnsName.Parse("_ldap._tcp.example.com");
         var request = new DnsRequest(name, recordType);
         var expectedTarget = DnsName.Parse("host.example.com");
-        byte[] rawData = recordType switch
+        ReadOnlyMemory<byte> rawData = recordType switch
         {
-            DnsRecordType.A => [0x01, 0x02, 0x03, 0x04],
+            DnsRecordType.A => (byte[])[0x01, 0x02, 0x03, 0x04],
             DnsRecordType.AAAA => [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F],
             DnsRecordType.CNAME or DnsRecordType.PTR => [
                 0x04, 0x68, 0x6F, 0x73, 0x74,
@@ -167,7 +167,7 @@ public class DnsEncodingTests
                 0x03, 0x63, 0x6F, 0x6D,
                 0x00
             ],
-            DnsRecordType.SRV => (byte[])[
+            DnsRecordType.SRV => [
                 0x00, 0x00, 0x00, 0x05, 0x01, 0x85,
                 0x04, 0x68, 0x6F, 0x73, 0x74,
                 0x07, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65,
@@ -177,7 +177,7 @@ public class DnsEncodingTests
             DnsRecordType.TXT => [0x05, 0x68, 0x65, 0x6C, 0x6C, 0x6F],
             _ => throw new ArgumentOutOfRangeException(nameof(recordType), recordType, null)
         };
-        var message = request.Reply(new DnsRawRecord(name, rawData, recordType, DnsClass.IN, TimeSpan.FromSeconds(42)));
+        var message = request.Reply(new DnsRawRecord(name, rawData.ToArray(), recordType, DnsClass.IN, TimeSpan.FromSeconds(42)));
         Span<byte> buffer = stackalloc byte[DnsDefaults.MaxUdpMessageSize];
 
         var length = DnsMessageEncoder.Encode(buffer, message);
@@ -195,7 +195,7 @@ public class DnsEncodingTests
             case DnsRecordType.A:
             case DnsRecordType.AAAA:
                 Assert.IsInstanceOfType<DnsAddressRecord>(actualAnswer);
-                CollectionAssert.AreEqual(rawData, ((DnsAddressRecord)actualAnswer).Data.GetAddressBytes());
+                CollectionAssert.AreEqual(rawData.ToArray(), ((DnsAddressRecord)actualAnswer).Data.GetAddressBytes());
                 break;
             case DnsRecordType.CNAME:
                 Assert.IsInstanceOfType<DnsCNameRecord>(actualAnswer);

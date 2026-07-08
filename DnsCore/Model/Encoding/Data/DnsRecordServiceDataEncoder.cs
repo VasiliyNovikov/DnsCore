@@ -13,7 +13,7 @@ internal sealed class DnsRecordServiceDataEncoder : DnsRecordDataEncoder<DnsServ
         writer.Write(data.Priority);
         writer.Write(data.Weight);
         writer.Write(data.Port);
-        DnsNameEncoder.EncodeUncompressed(ref writer, data.Target);
+        DnsNameEncoder.Encode(ref writer, data.Target, false);
     }
 
     protected override DnsServiceRecordData DecodeData(ref DnsReader reader)
