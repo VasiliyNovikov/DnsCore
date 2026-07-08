@@ -10,21 +10,23 @@ internal static class DnsNameEncoder
     private const ushort OffsetMask = CompressionMask << 8;
     private const ushort OffsetMaskInverted = unchecked((ushort)~OffsetMask);
 
-    public static void Encode(ref DnsWriter writer, DnsName name)
+    public static void Encode(ref DnsWriter writer, DnsName name, bool allowCompression = true)
     {
         if (!name.IsEmpty)
-        {
             if (writer.GetNameOffset(name, out var offset))
             {
-                writer.Write((ushort)(offset | OffsetMask));
-                return;
+                if (allowCompression)
+                {
+                    writer.Write((ushort)(offset | OffsetMask));
+                    return;
+                }
             }
-            writer.AddNameOffset(name, writer.Position);
-        }
+            else
+                writer.AddNameOffset(name, writer.Position);
 
         DnsLabelEncoder.Encode(ref writer, name.Label);
         if (name.Parent is { } parent)
-            Encode(ref writer, parent);
+            Encode(ref writer, parent, allowCompression);
     }
 
     public static DnsName Decode(ref DnsReader reader) => DecodeInternal(ref reader);

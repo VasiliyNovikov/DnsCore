@@ -36,6 +36,7 @@ internal sealed class DnsRecordTextDataEncoder : DnsRecordDataEncoder<string>
             var segmentLength = encodedBuffer[0];
             encodedBuffer = encodedBuffer[1..];
             encodedBuffer[..segmentLength].CopyTo(bufferSlice);
+            encodedBuffer = encodedBuffer[segmentLength..];
             bufferSlice = bufferSlice[segmentLength..];
         }
         return DnsTextRecord.Encoding.GetString(buffer[..^bufferSlice.Length]);
