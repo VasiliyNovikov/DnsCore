@@ -44,10 +44,62 @@ jobs:
           path: TestResults-${{ matrix.os }}
         if: ${{ always() }}
 
+  validate-big-endian:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v4
+        with:
+          platforms: s390x
+
+      - name: Build & Test
+        run: |
+          docker run --rm --platform linux/s390x --user 0 \
+            -e DNSCORE_TEST_PYTHON_HOME=/opt/dnscore-python \
+            -v "${{ github.workspace }}:/src" -w /src \
+            registry.access.redhat.com/dotnet/sdk:10.0 /bin/bash -lc '
+            set -eu
+            test "$(uname -m)" = "s390x"
+            microdnf install -y python3.12 python3.12-devel python3.12-pip bind-utils
+            python=/usr/bin/python3.12
+            stdlib=$("$python" -I -c "import sysconfig; print(sysconfig.get_path('\''stdlib'\''))")
+            libdir=$("$python" -I -c "import sysconfig; print(sysconfig.get_config_var('\''LIBDIR'\''))")
+            ldlibrary=$("$python" -I -c "import sysconfig; print(sysconfig.get_config_var('\''LDLIBRARY'\''))")
+            test -x "$python"
+            test -r "$libdir/$ldlibrary"
+            test -r "$stdlib/os.py"
+            test -d "$stdlib/lib-dynload"
+            install -d /opt/dnscore-python/bin /opt/dnscore-python/lib
+            ln -s "$python" /opt/dnscore-python/bin/python3
+            ln -s "$libdir/$ldlibrary" /opt/dnscore-python/lib/libpython3.12.so
+            # Mono on s390x cannot use the raw dlopen handle returned by the CSnakes resolver.
+            ln -s "$libdir/$ldlibrary" /opt/dnscore-python/lib/libcsnakes_python.so
+            ln -s "$stdlib" /opt/dnscore-python/lib/python3.12
+            export LD_LIBRARY_PATH="/opt/dnscore-python/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+            /opt/dnscore-python/bin/python3 -c "import sys; assert sys.byteorder == '\''big'\''; print(sys.version)"
+            dotnet build DnsCore.Tests/DnsCore.Tests.csproj -c Release -f net10.0
+            dotnet test DnsCore.Tests/DnsCore.Tests.csproj -c Release -f net10.0 --no-build -m:1 --logger trx --results-directory /src/TestResults-s390x -- RunConfiguration.TreatNoTestsAsError=true
+          '
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-s390x
+          path: TestResults-s390x
+        if: ${{ always() }}
+
   publish:
     if: ${{ success() && (vars.PUBLISH == 'true' || vars.PUBLISH == 'auto' && github.ref_name == 'master') }}
     needs:
       - validate
+      - validate-big-endian
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

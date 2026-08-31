@@ -27,8 +27,8 @@ public class DnsClientTests
         new()
         {
             TransportType = transportType,
-            InitialRetryDelay = TimeSpan.FromMilliseconds(10),
-            RequestTimeout = TimeSpan.FromMilliseconds(100),
+            InitialRetryDelay = TimeSpan.FromMilliseconds(50),
+            RequestTimeout = TimeSpan.FromMilliseconds(500),
             FailureRetryCount = 2
         };
 
@@ -36,12 +36,17 @@ public class DnsClientTests
     {
         var builder = Host.CreateApplicationBuilder();
         var home = Path.Join(Environment.CurrentDirectory, ".");
-        builder.Services
-               .WithPython()
-               .WithHome(home)
-               .WithVirtualEnvironment(Path.Join(home, ".venv"))
-               .WithUvInstaller()
-               .FromRedistributable();
+        var pythonBuilder = builder.Services
+                                   .WithPython()
+                                   .WithHome(home)
+                                   .WithVirtualEnvironment(Path.Join(home, ".venv"));
+        var pythonHome = Environment.GetEnvironmentVariable("DNSCORE_TEST_PYTHON_HOME");
+        if (string.IsNullOrWhiteSpace(pythonHome))
+            pythonBuilder.WithUvInstaller()
+                         .FromRedistributable();
+        else
+            pythonBuilder.WithPipInstaller()
+                         .FromFolder(pythonHome, "3.12");
         var app = builder.Build();
         var env = app.Services.GetRequiredService<IPythonEnvironment>();
         PyServer = env.TestServer();
@@ -83,7 +88,7 @@ public class DnsClientTests
             DnsAssert.AreEqual(expectedAnswer, response.Answers[0]);
         }, [expectedResponse]);
     }
-    
+
     [TestMethod]
     [DataRow(DnsTransportType.All)]
     public async Task DnsClient_Retry_On_Truncation(DnsTransportType transportType)

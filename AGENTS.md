@@ -79,9 +79,10 @@ DnsCore is a lightweight .NET DNS client and server library targeting net8.0, ne
 
 ## CI
 
-The GitHub Actions pipeline (`.github/workflows/pipeline.yml`) has two jobs:
+The GitHub Actions pipeline (`.github/workflows/pipeline.yml`) has three jobs:
 
 - **validate** — builds and tests across a matrix of runners: `ubuntu-latest` (x64), `ubuntu-24.04-arm` (arm64), `windows-latest` (x64), `windows-11-arm` (arm64), `macos-latest` (arm64). Sets up .NET 8.0, 9.0, 10.0. Uploads `.trx` test results as artifacts
+- **validate-big-endian** — uses QEMU to build and run the complete net10.0 test suite in an s390x Red Hat .NET SDK container. Installs Python 3.12 and BIND utilities from the package repository for the Python-backed client and external-tool server tests
 - **publish** — packs and pushes to NuGet (runs only on master when `PUBLISH` variable is `true` or `auto`). Version is computed by `.github/workflows/package_version.cs`: reads base version from `DnsCore.csproj`, queries NuGet for existing versions, increments patch. Non-master branches get a `-beta-{run_id}` suffix
 
 ## Code Conventions
@@ -114,7 +115,7 @@ The GitHub Actions pipeline (`.github/workflows/pipeline.yml`) has two jobs:
 
 **Client tests** (`DnsClientTests`):
 - Run against a Python DNS server (via CSnakes runtime) on port 12353
-- Python runtime initialized in static constructor: `WithPython()` → `WithVirtualEnvironment(.venv)` → `WithUvInstaller()` → `FromRedistributable()`
+- Python runtime initialized in static constructor: normally uses `WithUvInstaller()` and `FromRedistributable()`; `DNSCORE_TEST_PYTHON_HOME` selects `WithPipInstaller()` and `FromFolder()` for the packaged Python used by s390x CI
 - `test_server.py` uses `dnslib` (pinned at 0.9.26 in `requirements.txt`). `TestResolver` returns pre-encoded responses sequentially; `TestDNSServer` runs dual UDP+TCP threads
 - Tests: resolution, truncation retry/failure, failure retry with backoff, error status, timeout
 
