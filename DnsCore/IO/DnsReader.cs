@@ -42,6 +42,8 @@ internal ref struct DnsReader
         return result;
     }
 
+    public TimeSpan ReadTime() => TimeSpan.FromSeconds(Read<uint>());
+
     public ReadOnlySpan<byte> Read(ushort length)
     {
         var result = Peek(length);

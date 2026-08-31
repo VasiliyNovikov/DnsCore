@@ -133,7 +133,7 @@ public class DnsEncodingTests
         _ = DnsNameEncoder.Decode(ref reader);
         _ = reader.Read<ushort>(); // Answer type
         _ = reader.Read<ushort>(); // Answer class
-        _ = reader.Read<uint>(); // TTL
+        _ = reader.ReadTime(); // TTL
         var dataLength = reader.Read<ushort>();
         var data = reader.Read(dataLength);
         byte[] expectedParameters = [0x00, 0x00, 0x00, 0x05, 0x01, 0x85];
@@ -208,7 +208,7 @@ public class DnsEncodingTests
         _ = DnsNameEncoder.Decode(ref reader);
         _ = reader.Read<ushort>();
         _ = reader.Read<ushort>();
-        _ = reader.Read<uint>();
+        _ = reader.ReadTime();
         var dataLengthPosition = reader.Position;
         var dataLength = reader.Read<ushort>();
         Assert.AreEqual(length, reader.Position + dataLength);

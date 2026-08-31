@@ -39,7 +39,7 @@ internal static class DnsRecordEncoder
     public static void Encode(ref DnsWriter writer, DnsRecord record)
     {
         DnsRecordBaseEncoder.Encode(ref writer, record);
-        writer.Write((uint)record.Ttl.TotalSeconds);
+        writer.WriteTime(record.Ttl);
 
         var dataLenBuffer = writer.ProvideBufferAndAdvance(2);
 
@@ -52,7 +52,7 @@ internal static class DnsRecordEncoder
     public static DnsRecord Decode(ref DnsReader reader)
     {
         var (name, type, @class) = DnsRecordBaseEncoder.Decode(ref reader);
-        var ttl = TimeSpan.FromSeconds(reader.Read<uint>());
+        var ttl = reader.ReadTime();
         var dataLength = reader.Read<ushort>();
         var dataReader = reader.GetSubReader(reader.Position, dataLength);
         reader.Skip(dataLength);

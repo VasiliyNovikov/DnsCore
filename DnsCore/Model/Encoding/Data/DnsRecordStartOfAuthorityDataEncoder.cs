@@ -13,10 +13,10 @@ internal sealed class DnsRecordStartOfAuthorityDataEncoder : DnsRecordDataEncode
         DnsNameEncoder.Encode(ref writer, data.PrimaryNameServer);
         DnsNameEncoder.Encode(ref writer, data.ResponsibleMailbox);
         writer.Write(data.Serial);
-        writer.Write((uint)data.Refresh.TotalSeconds);
-        writer.Write((uint)data.Retry.TotalSeconds);
-        writer.Write((uint)data.Expire.TotalSeconds);
-        writer.Write((uint)data.Minimum.TotalSeconds);
+        writer.WriteTime(data.Refresh);
+        writer.WriteTime(data.Retry);
+        writer.WriteTime(data.Expire);
+        writer.WriteTime(data.Minimum);
     }
 
     protected override DnsStartOfAuthorityRecordData DecodeData(ref DnsReader reader)
@@ -24,10 +24,10 @@ internal sealed class DnsRecordStartOfAuthorityDataEncoder : DnsRecordDataEncode
         var primaryNameServer = DnsNameEncoder.Decode(ref reader);
         var responsibleMailbox = DnsNameEncoder.Decode(ref reader);
         var serial = reader.Read<uint>();
-        var refresh = TimeSpan.FromSeconds(reader.Read<uint>());
-        var retry = TimeSpan.FromSeconds(reader.Read<uint>());
-        var expire = TimeSpan.FromSeconds(reader.Read<uint>());
-        var minimum = TimeSpan.FromSeconds(reader.Read<uint>());
+        var refresh = reader.ReadTime();
+        var retry = reader.ReadTime();
+        var expire = reader.ReadTime();
+        var minimum = reader.ReadTime();
         return new(primaryNameServer, responsibleMailbox, serial, refresh, retry, expire, minimum);
     }
 
