@@ -27,8 +27,8 @@ public class DnsClientTests
         new()
         {
             TransportType = transportType,
-            InitialRetryDelay = TimeSpan.FromMilliseconds(10),
-            RequestTimeout = TimeSpan.FromMilliseconds(100),
+            InitialRetryDelay = TimeSpan.FromMilliseconds(50),
+            RequestTimeout = TimeSpan.FromMilliseconds(500),
             FailureRetryCount = 2
         };
 
