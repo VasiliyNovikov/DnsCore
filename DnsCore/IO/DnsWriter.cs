@@ -15,6 +15,8 @@ internal ref struct DnsWriter(Span<byte> buffer)
 
     public void Write<TInt>(TInt value) where TInt : unmanaged, IBinaryInteger<TInt> => Position += (ushort)value.WriteBigEndian(_buffer[Position..]);
 
+    public void WriteTime(TimeSpan value) => Write(checked((uint)value.TotalSeconds));
+
     public void Write(ReadOnlySpan<byte> value)
     {
         value.CopyTo(_buffer[Position..]);
