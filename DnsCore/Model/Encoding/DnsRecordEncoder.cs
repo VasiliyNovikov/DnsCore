@@ -17,8 +17,17 @@ internal static class DnsRecordEncoder
         Encoders = new DnsRecordDataEncoder?[UInt16.MaxValue + 1];
         RegisterTypeEncoder(DnsRecordType.A, DnsRecordAddressDataEncoder.Instance);
         RegisterTypeEncoder(DnsRecordType.AAAA, DnsRecordAddressDataEncoder.Instance);
+        RegisterTypeEncoder(DnsRecordType.NS, DnsRecordNameServerDataEncoder.Instance);
+        RegisterTypeEncoder(DnsRecordType.MD, DnsRecordMailDestinationDataEncoder.Instance);
+        RegisterTypeEncoder(DnsRecordType.MF, DnsRecordMailForwarderDataEncoder.Instance);
         RegisterTypeEncoder(DnsRecordType.CNAME, DnsRecordCNameDataEncoder.Instance);
+        RegisterTypeEncoder(DnsRecordType.SOA, DnsRecordStartOfAuthorityDataEncoder.Instance);
+        RegisterTypeEncoder(DnsRecordType.MB, DnsRecordMailboxDataEncoder.Instance);
+        RegisterTypeEncoder(DnsRecordType.MG, DnsRecordMailGroupDataEncoder.Instance);
+        RegisterTypeEncoder(DnsRecordType.MR, DnsRecordMailRenameDataEncoder.Instance);
         RegisterTypeEncoder(DnsRecordType.PTR, DnsRecordPtrDataEncoder.Instance);
+        RegisterTypeEncoder(DnsRecordType.MINFO, DnsRecordMailInformationDataEncoder.Instance);
+        RegisterTypeEncoder(DnsRecordType.MX, DnsRecordMailExchangeDataEncoder.Instance);
         RegisterTypeEncoder(DnsRecordType.SRV, DnsRecordServiceDataEncoder.Instance);
         RegisterTypeEncoder(DnsRecordType.TXT, DnsRecordTextDataEncoder.Instance);
     }

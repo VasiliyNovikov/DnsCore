@@ -40,10 +40,13 @@ DnsCore is a lightweight .NET DNS client and server library targeting net8.0, ne
   - `DnsMessage` (abstract) → `DnsRequest` (sealed), `DnsResponse` (sealed)
   - `DnsRecordBase` (abstract) → `DnsRecord` (abstract) → `DnsRecord<T>` (abstract generic)
     - `DnsAddressRecord` (sealed) — A/AAAA, wraps `IPAddress`
-    - `DnsNameRecord` (abstract) → `DnsCNameRecord` (sealed), `DnsPtrRecord` (sealed) — wraps `DnsName`
+    - `DnsNameRecord` (abstract) → `DnsNameServerRecord`, `DnsMailDestinationRecord`, `DnsMailForwarderRecord`, `DnsCNameRecord`, `DnsMailboxRecord`, `DnsMailGroupRecord`, `DnsMailRenameRecord`, `DnsPtrRecord` (all sealed) — wraps `DnsName`
+    - `DnsStartOfAuthorityRecord` (sealed) — SOA, wraps primary server, responsible mailbox, and timing data
+    - `DnsMailInformationRecord` (sealed) — MINFO, wraps responsible and error mailboxes
+    - `DnsMailExchangeRecord` (sealed) — MX, wraps preference and exchange name
     - `DnsServiceRecord` (sealed) — SRV, wraps priority/weight/port/target data
     - `DnsTextRecord` — TXT, wraps `string`
-    - `DnsRawRecord` (sealed) — untyped `byte[]` fallback
+    - `DnsRawRecord` (sealed) — untyped `byte[]` fallback; rejects record types whose RDATA can contain compression pointers
   - `DnsName` (sealed) — immutable linked list of `DnsLabel` nodes. Supports case-insensitive equality, `ISpanFormattable`, parsing from string. Each node holds one label and a `Parent` reference
   - `DnsLabel` (readonly struct) — single DNS label (max 63 bytes), validates ASCII letters/digits/hyphens
   - `DnsQuestion` (sealed) — question record with Name, RecordType, Class; supports equality
@@ -62,7 +65,7 @@ DnsCore is a lightweight .NET DNS client and server library targeting net8.0, ne
   - `DnsDefaults` — Port=53, DefaultUdpMessageSize=256, MaxUdpMessageSize=512, DefaultTcpMessageSize=1024, MaxTcpMessageSize=65535
   - Backport polyfills for pre-net9.0: `Lock` class, `Task.WhenAny(ReadOnlySpan<Task>)`, `ArgumentOutOfRangeException` for `TimeSpan`
 - `IO/` — `DnsReader`/`DnsWriter` (both `ref struct` for zero-allocation stack use). Read/write big-endian integers via `IBinaryInteger<T>`. Support DNS message compression (RFC 1035) via offset↔name dictionaries
-- `Model/Encoding/` — `DnsRequestEncoder`/`DnsResponseEncoder` (public static Encode/Decode methods). Internally: `DnsRawMessageEncoder` handles header + sections, `DnsNameEncoder` handles name compression (pointer = offset | 0xC000), `DnsRecordEncoder` dispatches to type-specific data encoders (address, name, text, raw). Throws `FormatException` on any encoding/decoding error
+- `Model/Encoding/` — `DnsRequestEncoder`/`DnsResponseEncoder` (public static Encode/Decode methods). Internally: `DnsRawMessageEncoder` handles header + sections, `DnsNameEncoder` handles name compression (pointer = offset | 0xC000), `DnsRecordEncoder` dispatches to type-specific data encoders. Throws `FormatException` on any encoding/decoding error
 
 **Exception hierarchy:**
 - `DnsException` — base for all DNS exceptions
@@ -101,7 +104,7 @@ The GitHub Actions pipeline (`.github/workflows/pipeline.yml`) has two jobs:
 - Framework: MSTest (`[TestClass]`, `[TestMethod]`, `[DataRow]`)
 - Tests do **not** run in parallel (`[DoNotParallelize]` assembly attribute) due to DNS port conflicts
 - Transport variants (UDP/TCP/All) tested via `[DataRow(DnsTransportType.Udp)]` / `[DataRow(DnsTransportType.Tcp)]` parameterization
-- Custom assertion helper: `DnsAssert.AreEqual()` for record-level field comparison (type-aware: compares IPAddress for A/AAAA, DnsName for CNAME/PTR, string for TXT, byte[] for raw)
+- Custom assertion helper: `DnsAssert.AreEqual()` performs type-aware record-level field comparison
 
 **Server tests** (`DnsServerTests`):
 - Invoke platform-specific external tools against an in-process `DnsServer`
@@ -116,7 +119,7 @@ The GitHub Actions pipeline (`.github/workflows/pipeline.yml`) has two jobs:
 - Tests: resolution, truncation retry/failure, failure retry with backoff, error status, timeout
 
 **Encoding tests** (`DnsEncodingTests`):
-- Round-trip encode/decode for all record types and status codes
+- Round-trip encode/decode for implemented record types and status codes
 - Fuzz testing: 1000 random byte sequences must throw `FormatException`
 - Compression pointer loop detection (self-referencing, multi-level loops, out-of-bounds pointers)
 

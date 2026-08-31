@@ -30,6 +30,9 @@ internal abstract class DnsRecordDataEncoder<T> : DnsRecordDataEncoder where T :
     public override DnsRecord Decode(ref DnsReader reader, DnsName name, DnsRecordType recordType, DnsClass @class, TimeSpan ttl)
     {
         var data = DecodeData(ref reader);
+        if (!reader.ReadToEnd().IsEmpty)
+            throw new FormatException($"Invalid {recordType} record data: buffer contains extra data");
+
         return CreateRecord(name, data, recordType, @class, ttl);
     }
 

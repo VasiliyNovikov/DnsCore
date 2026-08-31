@@ -148,21 +148,15 @@ public class DnsEncodingTests
     [TestMethod]
     [DataRow(DnsRecordType.A)]
     [DataRow(DnsRecordType.AAAA)]
-    [DataRow(DnsRecordType.CNAME)]
-    [DataRow(DnsRecordType.PTR)]
-    [DataRow(DnsRecordType.SRV)]
     [DataRow(DnsRecordType.TXT)]
     public void Test_Encode_RawData_ForKnownRecordType_DecodesTypedRecord(DnsRecordType recordType)
     {
         var name = DnsName.Parse("_ldap._tcp.example.com");
         var request = new DnsRequest(name, recordType);
-        var expectedTarget = DnsName.Parse("host.example.com");
         var rawData = recordType switch
         {
             DnsRecordType.A => "\x0001\x0002\x0003\x0004"u8.ToArray(),
             DnsRecordType.AAAA => "\0\x0001\x0002\x0003\x0004\x0005\x0006\x0007\x0008\x0009\x000A\x000B\x000C\x000D\x000E\x000F"u8.ToArray(),
-            DnsRecordType.CNAME or DnsRecordType.PTR => "\x0004host\x0007example\x0003com\0"u8.ToArray(),
-            DnsRecordType.SRV => [.. "\0\0\0\x0005\x0001"u8, 0x85, .. "\x0004host\x0007example\x0003com\0"u8],
             DnsRecordType.TXT => "\x0005hello"u8.ToArray(),
             _ => throw new ArgumentOutOfRangeException(nameof(recordType), recordType, null)
         };
@@ -185,18 +179,6 @@ public class DnsEncodingTests
             case DnsRecordType.AAAA:
                 Assert.IsInstanceOfType<DnsAddressRecord>(actualAnswer);
                 CollectionAssert.AreEqual(rawData, ((DnsAddressRecord)actualAnswer).Data.GetAddressBytes());
-                break;
-            case DnsRecordType.CNAME:
-                Assert.IsInstanceOfType<DnsCNameRecord>(actualAnswer);
-                Assert.AreEqual(expectedTarget, ((DnsCNameRecord)actualAnswer).Data);
-                break;
-            case DnsRecordType.PTR:
-                Assert.IsInstanceOfType<DnsPtrRecord>(actualAnswer);
-                Assert.AreEqual(expectedTarget, ((DnsPtrRecord)actualAnswer).Data);
-                break;
-            case DnsRecordType.SRV:
-                Assert.IsInstanceOfType<DnsServiceRecord>(actualAnswer);
-                Assert.AreEqual(new DnsServiceRecordData(0, 5, 389, expectedTarget), ((DnsServiceRecord)actualAnswer).Data);
                 break;
             case DnsRecordType.TXT:
                 Assert.IsInstanceOfType<DnsTextRecord>(actualAnswer);
