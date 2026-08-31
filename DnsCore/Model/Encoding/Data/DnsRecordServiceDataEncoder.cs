@@ -22,9 +22,7 @@ internal sealed class DnsRecordServiceDataEncoder : DnsRecordDataEncoder<DnsServ
         var weight = reader.Read<ushort>();
         var port = reader.Read<ushort>();
         var target = DnsNameEncoder.Decode(ref reader);
-        return reader.ReadToEnd().IsEmpty
-            ? new(priority, weight, port, target)
-            : throw new FormatException("Invalid SRV record data: buffer contains extra data");
+        return new(priority, weight, port, target);
     }
 
     protected override DnsRecord<DnsServiceRecordData> CreateRecord(DnsName name, DnsServiceRecordData data, DnsRecordType recordType, DnsClass @class, TimeSpan ttl)

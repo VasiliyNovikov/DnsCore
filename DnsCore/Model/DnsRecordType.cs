@@ -34,10 +34,28 @@ public enum DnsRecordType : ushort
     MX = 15,
     // Text strings
     TXT = 16,
+    // Responsible person
+    RP = 17,
+    // AFS database location
+    AFSDB = 18,
+    // Route through
+    RT = 21,
+    // Security signature
+    SIG = 24,
+    // Public key
+    KEY = 25,
+    // X.400 mail mapping information
+    PX = 26,
     // An IPv6 host address
     AAAA = 28,
+    // Next domain (Obsolete)
+    NXT = 30,
     // Server selection
     SRV = 33,
+    // Naming authority pointer
+    NAPTR = 35,
+    // Non-terminal DNS name redirection
+    DNAME = 39,
     // A request for a transfer of an entire zone
     AXFR = 252,
     // A request for mailbox-related records (MB, MG or MR)
