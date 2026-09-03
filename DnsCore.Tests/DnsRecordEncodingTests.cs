@@ -20,10 +20,12 @@ public class DnsRecordEncodingTests
         var errorMailboxName = DnsName.Parse("errors.example.com");
         var nameServerName = DnsName.Parse("ns.example.com");
         var responsibleMailboxName = DnsName.Parse("hostmaster.example.com");
+        var targetName = DnsName.Parse("target.example.net");
         DnsRecord[] records = [
             new DnsNameServerRecord(ExampleName, nameServerName, RecordTtl),
             new DnsMailDestinationRecord(ExampleName, mailName, RecordTtl),
             new DnsMailForwarderRecord(ExampleName, mailName, RecordTtl),
+            new DnsDNameRecord(ExampleName, targetName, RecordTtl),
             new DnsMailboxRecord(ExampleName, mailName, RecordTtl),
             new DnsMailGroupRecord(ExampleName, mailName, RecordTtl),
             new DnsMailRenameRecord(ExampleName, mailName, RecordTtl),

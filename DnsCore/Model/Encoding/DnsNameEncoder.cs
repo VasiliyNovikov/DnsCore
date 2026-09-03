@@ -21,7 +21,7 @@ internal static class DnsNameEncoder
                     return;
                 }
             }
-            else
+            else if (writer.Position <= OffsetMaskInverted)
                 writer.AddNameOffset(name, writer.Position);
 
         DnsLabelEncoder.Encode(ref writer, name.Label);
