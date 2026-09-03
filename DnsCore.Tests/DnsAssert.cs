@@ -26,6 +26,7 @@ internal static class DnsAssert
             case DnsRecordType.MG:
             case DnsRecordType.MR:
             case DnsRecordType.PTR:
+            case DnsRecordType.DNAME:
                 Assert.AreEqual(((DnsNameRecord)expected).Data, ((DnsNameRecord)actual).Data);
                 break;
             case DnsRecordType.SOA:

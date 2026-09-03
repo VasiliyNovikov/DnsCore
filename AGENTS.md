@@ -40,7 +40,7 @@ DnsCore is a lightweight .NET DNS client and server library targeting net8.0, ne
   - `DnsMessage` (abstract) → `DnsRequest` (sealed), `DnsResponse` (sealed)
   - `DnsRecordBase` (abstract) → `DnsRecord` (abstract) → `DnsRecord<T>` (abstract generic)
     - `DnsAddressRecord` (sealed) — A/AAAA, wraps `IPAddress`
-    - `DnsNameRecord` (abstract) → `DnsNameServerRecord`, `DnsMailDestinationRecord`, `DnsMailForwarderRecord`, `DnsCNameRecord`, `DnsMailboxRecord`, `DnsMailGroupRecord`, `DnsMailRenameRecord`, `DnsPtrRecord` (all sealed) — wraps `DnsName`
+    - `DnsNameRecord` (abstract) → `DnsNameServerRecord`, `DnsMailDestinationRecord`, `DnsMailForwarderRecord`, `DnsCNameRecord`, `DnsDNameRecord`, `DnsMailboxRecord`, `DnsMailGroupRecord`, `DnsMailRenameRecord`, `DnsPtrRecord` (all sealed) — wraps `DnsName`
     - `DnsStartOfAuthorityRecord` (sealed) — SOA, wraps primary server, responsible mailbox, and timing data
     - `DnsMailInformationRecord` (sealed) — MINFO, wraps responsible and error mailboxes
     - `DnsMailExchangeRecord` (sealed) — MX, wraps preference and exchange name

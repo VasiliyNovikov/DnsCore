@@ -146,6 +146,49 @@ public class DnsEncodingTests
     }
 
     [TestMethod]
+    public void Test_Decode_CompressedDName_ReencodesUncompressed()
+    {
+        var target = DnsName.Parse("example.com");
+        var message = new DnsResponse(42, answers: [new DnsCNameRecord(DnsName.Parse("source.example.com"), target, TimeSpan.FromSeconds(42))]);
+        Span<byte> buffer = stackalloc byte[DnsDefaults.MaxUdpMessageSize];
+        var cnameLength = DnsResponseEncoder.Encode(buffer, message);
+        var reader = new DnsReader(buffer[..cnameLength]);
+        reader.Skip(12); // Header
+        _ = DnsNameEncoder.Decode(ref reader);
+        buffer[reader.Position + 1] = (byte)DnsRecordType.DNAME;
+
+        var response = DnsResponseEncoder.Decode(buffer[..cnameLength]);
+        Assert.HasCount(1, response.Answers);
+        var dname = (DnsDNameRecord)response.Answers[0];
+        Assert.AreEqual(target, dname.Data);
+
+        var dnameLength = DnsResponseEncoder.Encode(buffer, response);
+
+        Assert.IsGreaterThan(cnameLength, dnameLength);
+    }
+
+    [TestMethod]
+    public void Test_Encode_Decode_LargeResponse()
+    {
+        var target = DnsName.Parse("target.unique.invalid");
+        var ttl = TimeSpan.FromSeconds(42);
+        var padding = new byte[0x4100];
+        var response = new DnsResponse(42, answers: [
+            new DnsRawRecord(DnsName.Parse("padding.test"), padding, (DnsRecordType)65400, DnsClass.IN, ttl),
+            new DnsDNameRecord(DnsName.Parse("source.test"), target, ttl),
+            new DnsCNameRecord(DnsName.Parse("alias.test"), target, ttl)
+        ]);
+        var buffer = new byte[DnsDefaults.MaxTcpMessageSize];
+
+        var length = DnsResponseEncoder.Encode(buffer, response);
+        var decodedResponse = DnsResponseEncoder.Decode(buffer.AsSpan(0, length));
+
+        Assert.HasCount(response.Answers.Count, decodedResponse.Answers);
+        for (var i = 0; i < response.Answers.Count; ++i)
+            DnsAssert.AreEqual(response.Answers[i], decodedResponse.Answers[i]);
+    }
+
+    [TestMethod]
     [DataRow(DnsRecordType.A)]
     [DataRow(DnsRecordType.AAAA)]
     [DataRow(DnsRecordType.TXT)]

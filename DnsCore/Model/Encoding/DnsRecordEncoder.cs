@@ -29,6 +29,7 @@ internal static class DnsRecordEncoder
         RegisterTypeEncoder(DnsRecordType.MINFO, DnsRecordMailInformationDataEncoder.Instance);
         RegisterTypeEncoder(DnsRecordType.MX, DnsRecordMailExchangeDataEncoder.Instance);
         RegisterTypeEncoder(DnsRecordType.SRV, DnsRecordServiceDataEncoder.Instance);
+        RegisterTypeEncoder(DnsRecordType.DNAME, DnsRecordDNameDataEncoder.Instance);
         RegisterTypeEncoder(DnsRecordType.TXT, DnsRecordTextDataEncoder.Instance);
     }
 
