@@ -34,22 +34,22 @@ public readonly struct DnsLabel
         {
             var span = label.AsSpan();
             if (!IsOuterChar(span[0]))
-                throw new ArgumentException("First character of the label must be an ASCII letter, digit, or underscore", nameof(label));
+                throw new ArgumentException("First character of the label must be an ASCII letter, digit, underscore, or asterisk", nameof(label));
 
             if (label.Length > 1)
             {
                 for (var i = 1; i < label.Length - 1; ++i)
                     if (!IsInnerChar(span[i]))
-                        throw new ArgumentException("Middle characters of the label must be an ASCII letter, digit, hyphen, or underscore", nameof(label));
+                        throw new ArgumentException("Middle characters of the label must be an ASCII letter, digit, hyphen, underscore, or asterisk", nameof(label));
 
                 if (!IsOuterChar(span[^1]))
-                    throw new ArgumentException("Last character of the label must be an ASCII letter, digit, or underscore", nameof(label));
+                    throw new ArgumentException("Last character of the label must be an ASCII letter, digit, underscore, or asterisk", nameof(label));
             }
         }
 
         return;
 
-        static bool IsOuterChar(char c) => c is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9') or '_';
+        static bool IsOuterChar(char c) => c is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9') or '_' or '*';
         static bool IsInnerChar(char c) => IsOuterChar(c) || c == '-';
     }
 

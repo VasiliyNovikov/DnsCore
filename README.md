@@ -16,6 +16,10 @@
 
 Unknown record types are exposed as `DnsRawRecord` so their RDATA remains byte-transparent. Record types that can legally or historically contain message-relative DNS compression pointers require type-specific encoding; unsupported types in that category are rejected instead of being exposed as unsafe raw data. This currently includes the legacy RP, AFSDB, RT, SIG, KEY, PX, NXT, and NAPTR formats.
 
+## DNS labels
+
+Labels support ASCII letters, digits, underscores, asterisks (`*`), and interior hyphens, up to 63 bytes. Asterisks are preserved literally anywhere in a label, including `*.example.com` and `a*b.example.com`. This supports parsing and wire encoding/decoding of wildcard names; it does not add wildcard matching or automatic wildcard answers to the server.
+
 ## DNAME support
 
 Typed DNAME support covers wire encoding and decoding. Automatic subtree substitution, synthesized CNAME generation, and resolver following are not implemented.

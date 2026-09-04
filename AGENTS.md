@@ -48,7 +48,7 @@ DnsCore is a lightweight .NET DNS client and server library targeting net8.0, ne
     - `DnsTextRecord` — TXT, wraps `string`
     - `DnsRawRecord` (sealed) — untyped `byte[]` fallback; rejects record types whose RDATA can contain compression pointers
   - `DnsName` (sealed) — immutable linked list of `DnsLabel` nodes. Supports case-insensitive equality, `ISpanFormattable`, parsing from string. Each node holds one label and a `Parent` reference
-  - `DnsLabel` (readonly struct) — single DNS label (max 63 bytes), validates ASCII letters/digits/hyphens
+  - `DnsLabel` (readonly struct) — single DNS label (max 63 bytes), validates ASCII letters/digits/underscores/asterisks and interior hyphens; asterisks are literal, not pattern matching
   - `DnsQuestion` (sealed) — question record with Name, RecordType, Class; supports equality
   - Enums: `DnsRecordType` (A, NS, CNAME, PTR, TXT, AAAA, SRV, etc.), `DnsClass` (IN, CS, CH, HS, ANY), `DnsResponseStatus` (Ok, FormatError, ServerFailure, NameError, NotImplemented, Refused), `DnsRequestType` (Query, InverseQuery, Status)
 - `Client/` — `DnsClient` (sealed) with UDP→TCP fallback, retry with exponential backoff + jitter. Round-robins across server endpoints via `Interlocked` index. `Resolver/` has transport-specific implementations (`DnsUdpResolver`, `DnsTcpResolver`). `SocketPool/` manages UDP socket pooling (configurable min/max sockets, idle/lifetime timeouts, background cleanup). Request IDs generated via `RandomNumberGenerator` (cryptographically secure)
