@@ -34,21 +34,21 @@ public enum DnsRecordType : ushort
     MX = 15,
     // Text strings
     TXT = 16,
-    // Responsible person
+    // Responsible person (EXPERIMENTAL)
     RP = 17,
-    // AFS database location
+    // AFS database location (EXPERIMENTAL; subtype 1 is deprecated in favor of SRV)
     AFSDB = 18,
-    // Route through
+    // Route through (EXPERIMENTAL)
     RT = 21,
-    // Security signature
+    // Legacy security signature, retained for SIG(0)
     SIG = 24,
-    // Public key
+    // Legacy public key, retained for SIG(0) and TKEY
     KEY = 25,
-    // X.400 mail mapping information
+    // Legacy MIXER/X.400 mail mapping information
     PX = 26,
     // An IPv6 host address
     AAAA = 28,
-    // Next domain (Obsolete)
+    // Next domain (OBSOLETE)
     NXT = 30,
     // Server selection
     SRV = 33,

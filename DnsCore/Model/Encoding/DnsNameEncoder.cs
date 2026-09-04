@@ -7,6 +7,7 @@ namespace DnsCore.Model.Encoding;
 internal static class DnsNameEncoder
 {
     private const byte CompressionMask = 0b1100_0000;
+    private const ushort MaxCompressionOffset = 0x3FFF;
     private const ushort OffsetMask = CompressionMask << 8;
     private const ushort OffsetMaskInverted = unchecked((ushort)~OffsetMask);
 
@@ -15,13 +16,13 @@ internal static class DnsNameEncoder
         if (!name.IsEmpty)
             if (writer.GetNameOffset(name, out var offset))
             {
-                if (allowCompression)
+                if (allowCompression && offset <= MaxCompressionOffset)
                 {
                     writer.Write((ushort)(offset | OffsetMask));
                     return;
                 }
             }
-            else if (writer.Position <= OffsetMaskInverted)
+            else if (writer.Position <= MaxCompressionOffset)
                 writer.AddNameOffset(name, writer.Position);
 
         DnsLabelEncoder.Encode(ref writer, name.Label);
@@ -29,15 +30,17 @@ internal static class DnsNameEncoder
             Encode(ref writer, parent, allowCompression);
     }
 
-    public static DnsName Decode(ref DnsReader reader) => DecodeInternal(ref reader);
+    public static DnsName Decode(ref DnsReader reader, bool allowCompression = true) => DecodeInternal(ref reader, allowCompression: allowCompression);
 
-    private static DnsName DecodeInternal(ref DnsReader reader, int maxLength = DnsName.MaxLength, bool canStartWithCompression = true)
+    private static DnsName DecodeInternal(ref DnsReader reader, int maxLength = DnsName.MaxLength, bool canStartWithCompression = true, bool allowCompression = true)
     {
         if (maxLength <= 0)
             throw new FormatException("DNS name too long");
 
         if (reader.Peek<byte>() >= CompressionMask)
         {
+            if (!allowCompression)
+                throw new FormatException("DNS name compression is not allowed");
             if (!canStartWithCompression)
                 throw new FormatException("DNS name compression pointer can't point to another pointer");
 
@@ -46,7 +49,7 @@ internal static class DnsNameEncoder
                 return name;
 
             var offsetReader = reader.GetSubReader(offset);
-            return DecodeInternal(ref offsetReader, maxLength, false);
+            return DecodeInternal(ref offsetReader, maxLength, false, allowCompression);
         }
         else
         {
@@ -55,7 +58,7 @@ internal static class DnsNameEncoder
             if (label.IsEmpty)
                 return DnsName.Empty;
 
-            var parent = DecodeInternal(ref reader, maxLength - label.Length - 1);
+            var parent = DecodeInternal(ref reader, maxLength - label.Length - 1, allowCompression: allowCompression);
             var name = new DnsName(label, parent);
             reader.AddNameOffset(offset, name);
             return name;

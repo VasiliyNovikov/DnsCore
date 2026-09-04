@@ -46,6 +46,9 @@ DnsCore is a lightweight .NET DNS client and server library targeting net8.0, ne
     - `DnsMailExchangeRecord` (sealed) — MX, wraps preference and exchange name
     - `DnsServiceRecord` (sealed) — SRV, wraps priority/weight/port/target data
     - `DnsTextRecord` — TXT, wraps `string`
+    - `DnsResponsiblePersonRecord`, `DnsAfsDatabaseRecord`, `DnsRouteThroughRecord`, `DnsMailMappingRecord` (sealed) — RP, AFSDB, RT, and PX legacy/experimental typed records
+    - `DnsNamingAuthorityPointerRecord` (sealed) — NAPTR typed wire record
+    - `DnsSignatureRecord`, `DnsKeyRecord`, `DnsNextDomainRecord` (sealed) — legacy SIG, KEY, and obsolete NXT typed wire records; no cryptographic or denial-validation behavior
     - `DnsRawRecord` (sealed) — untyped `byte[]` fallback; rejects record types whose RDATA can contain compression pointers
   - `DnsName` (sealed) — immutable linked list of `DnsLabel` nodes. Supports case-insensitive equality, `ISpanFormattable`, parsing from string. Each node holds one label and a `Parent` reference
   - `DnsLabel` (readonly struct) — single DNS label (max 63 bytes), validates ASCII letters/digits/underscores/asterisks and interior hyphens; asterisks are literal, not pattern matching
@@ -65,7 +68,7 @@ DnsCore is a lightweight .NET DNS client and server library targeting net8.0, ne
   - `DnsDefaults` — Port=53, DefaultUdpMessageSize=256, MaxUdpMessageSize=512, DefaultTcpMessageSize=1024, MaxTcpMessageSize=65535
   - Backport polyfills for pre-net9.0: `Lock` class, `Task.WhenAny(ReadOnlySpan<Task>)`, `ArgumentOutOfRangeException` for `TimeSpan`
 - `IO/` — `DnsReader`/`DnsWriter` (both `ref struct` for zero-allocation stack use). Read/write big-endian integers via `IBinaryInteger<T>`. Support DNS message compression (RFC 1035) via offset↔name dictionaries
-- `Model/Encoding/` — `DnsRequestEncoder`/`DnsResponseEncoder` (public static Encode/Decode methods). Internally: `DnsRawMessageEncoder` handles header + sections, `DnsNameEncoder` handles name compression (pointer = offset | 0xC000), `DnsRecordEncoder` dispatches to type-specific data encoders. Throws `FormatException` on any encoding/decoding error
+- `Model/Encoding/` — `DnsRequestEncoder`/`DnsResponseEncoder` (public static Encode/Decode methods). Internally: `DnsRawMessageEncoder` handles header + sections, `DnsNameEncoder` handles name compression (pointer = offset | 0xC000), `DnsRecordEncoder` dispatches to type-specific data encoders. Embedded names in post-RFC 1035 record data are emitted uncompressed. Throws `FormatException` on any encoding/decoding error
 
 **Exception hierarchy:**
 - `DnsException` — base for all DNS exceptions
