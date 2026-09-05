@@ -2,8 +2,6 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
 
-using Microsoft.Extensions.Primitives;
-
 namespace DnsCore.Model;
 
 public readonly struct DnsLabel
@@ -13,11 +11,11 @@ public readonly struct DnsLabel
 {
     private const byte MaxLength = 63;
 
-    public static DnsLabel Empty { get; } = new(StringSegment.Empty);
+    public static DnsLabel Empty { get; } = new(ReadOnlyMemory<char>.Empty);
 
-    private readonly StringSegment _label;
+    private readonly ReadOnlyMemory<char> _label;
 
-    public ReadOnlySpan<char> Span => _label;
+    public ReadOnlySpan<char> Span => _label.Span;
 
     public byte Length => (byte)_label.Length;
 
@@ -39,19 +37,19 @@ public readonly struct DnsLabel
         }
     }
 
-    internal DnsLabel(StringSegment label) => _label = label;
+    internal DnsLabel(ReadOnlyMemory<char> label) => _label = label;
 
-    internal static void Validate(StringSegment label)
+    internal static void Validate(ReadOnlyMemory<char> label)
     {
         if (label.Length > MaxLength)
             throw new ArgumentException("Label length exceeds maximum length", nameof(label));
 
-        foreach (var value in label.AsSpan())
+        foreach (var value in label.Span)
             if (value is < '!' or > '~' or '.' or '\\')
                 throw new ArgumentException("DNS labels require printable ASCII without spaces, dots, or backslashes", nameof(label));
     }
 
-    internal static DnsLabel ParseCore(StringSegment label)
+    internal static DnsLabel ParseCore(ReadOnlyMemory<char> label)
     {
         switch (label.Length)
         {
@@ -71,7 +69,7 @@ public readonly struct DnsLabel
     }
 
     /// <summary>Parses printable ASCII label text without spaces, dots, or backslashes.</summary>
-    public static DnsLabel Parse(string label) => ParseCore(label);
+    public static DnsLabel Parse(string label) => ParseCore(label.AsMemory());
 
     public static DnsLabel ParseHostName(string label)
     {
@@ -82,7 +80,7 @@ public readonly struct DnsLabel
 
     public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
     {
-        if (_label.AsSpan().TryCopyTo(destination))
+        if (Span.TryCopyTo(destination))
         {
             charsWritten = _label.Length;
             return true;
@@ -103,9 +101,9 @@ public readonly struct DnsLabel
 
     public override bool Equals(object? obj) => obj is DnsLabel label && Equals(label);
 
-    public bool Equals(DnsLabel other) => _label.Equals(other._label, StringComparison.OrdinalIgnoreCase);
+    public bool Equals(DnsLabel other) => Span.Equals(other.Span, StringComparison.OrdinalIgnoreCase);
 
-    public override int GetHashCode() => string.GetHashCode(_label, StringComparison.OrdinalIgnoreCase);
+    public override int GetHashCode() => string.GetHashCode(Span, StringComparison.OrdinalIgnoreCase);
 
     public static bool operator ==(DnsLabel left, DnsLabel right) => left.Equals(right);
 

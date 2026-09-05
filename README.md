@@ -22,7 +22,7 @@ Labels support printable ASCII (`!` through `~`) except dots and backslashes, up
 
 `DnsName.Parse` always treats dots as label separators. Empty text and `.` represent the root name, but interior empty labels are rejected. Escape sequences are not supported. Spaces, control characters, backslashes, non-ASCII characters, and dots within a label are rejected in both text parsing and wire decoding. Consequently, SOA mailbox labels containing dots and DNS-SD instance labels containing spaces or Unicode are not currently supported.
 
-`DnsLabel` reuses input `StringSegment`s; `Span` exposes the unchanged text and `Length` counts characters/bytes. `DnsName.Length` counts presentation characters including the trailing dot, with `DnsName.MaxLength` equal to 254. Uncompressed wire size is one byte larger for non-root names; the root occupies one byte. Formatting is not shell escaping or a zone-file serializer.
+`DnsLabel` stores string-backed `ReadOnlyMemory<char>` slices, reusing input strings; `Span` exposes the unchanged text and `Length` counts characters/bytes. `DnsName.Length` counts presentation characters including the trailing dot, with `DnsName.MaxLength` equal to 254. Uncompressed wire size is one byte larger for non-root names; the root occupies one byte. Formatting is not shell escaping or a zone-file serializer.
 
 ```csharp
 var reverse = DnsName.Parse("129.128/26.2.0.192.in-addr.arpa.");
@@ -32,7 +32,7 @@ bool isHostName = reverse.IsHostName; // false: contains '/'
 
 Both labels and names offer `IsHostName` and `ParseHostName` for optional ASCII letters/digits/interior-hyphens validation. Leading digits and a trailing name dot are accepted; root names, wildcards, and underscores are not hostnames. IDNA conversion is left to callers; these APIs validate syntax, not IDNA A-labels or domain registration.
 
-Equality and compression matching ignore ASCII letter case; hashing follows the same rules. Compression may reuse the casing of an earlier suffix. Asterisks remain literal; parsing them does not add wildcard matching or automatic wildcard answers.
+Equality and compression matching ignore ASCII letter case; hashing follows the same rules. A default `DnsLabel` equals `DnsLabel.Empty` and has the same hash code. Compression may reuse the casing of an earlier suffix. Asterisks remain literal; parsing them does not add wildcard matching or automatic wildcard answers.
 
 Parsing and construction reject names exceeding 255 wire bytes; parsing also rejects repeated trailing dots. The constructor preserves the supplied parent. ASCII hostname presentation and `DnsName.Length` remain unchanged.
 

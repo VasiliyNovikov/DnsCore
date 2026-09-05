@@ -18,7 +18,6 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
-    <PackageReference Include="Microsoft.Extensions.Primitives" />
     <PackageReference Include="RentedListCore" />
   </ItemGroup>
   <ItemGroup>

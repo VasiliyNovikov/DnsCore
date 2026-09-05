@@ -120,4 +120,16 @@ public class DnsLabelTests
         Assert.AreEqual(lower, upper);
         Assert.AreEqual(lower.GetHashCode(), upper.GetHashCode());
     }
+
+    [TestMethod]
+    public void Equality_DefaultAndEmpty_AndHashesConsistently()
+    {
+        var label = default(DnsLabel);
+        Assert.AreEqual(DnsLabel.Empty, label);
+        Assert.AreEqual(DnsLabel.Empty.GetHashCode(), label.GetHashCode());
+
+        var name = new DnsName(label, null);
+        Assert.AreEqual(DnsName.Empty, name);
+        Assert.AreEqual(DnsName.Empty.GetHashCode(), name.GetHashCode());
+    }
 }
