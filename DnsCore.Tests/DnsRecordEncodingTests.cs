@@ -1,4 +1,5 @@
 using System;
+using System.Net;
 
 using DnsCore.Model;
 using DnsCore.Model.Encoding;
@@ -12,6 +13,33 @@ public class DnsRecordEncodingTests
 {
     private static readonly TimeSpan RecordTtl = TimeSpan.FromSeconds(42);
     private static readonly DnsName ExampleName = DnsName.Parse("example.com");
+
+    [TestMethod]
+    public void GeneralNames_RealWorldRecords_RoundTripExactWireBytes()
+    {
+        var mailbox = DnsName.Parse("john+ops.example.com");
+        var instance = DnsName.Parse("Office-Printer(Color)._ipp._tcp.local");
+        var server = DnsName.ParseHostName("printer.local");
+        var reverse = DnsName.Parse("129.2.0.192.in-addr.arpa");
+        DnsRecord[] records = [
+            new DnsCNameRecord(reverse, DnsName.Parse("129.128/26.2.0.192.in-addr.arpa"), RecordTtl),
+            new DnsStartOfAuthorityRecord(ExampleName, DnsName.ParseHostName("ns.example.com"), mailbox, 1, RecordTtl, RecordTtl, RecordTtl, RecordTtl, RecordTtl),
+            new DnsPtrRecord(DnsName.Parse("_ipp._tcp.local"), instance, RecordTtl),
+            new DnsServiceRecord(instance, 0, 0, 631, server, RecordTtl),
+            new DnsAddressRecord(DnsName.Parse("*.example.com"), IPAddress.Loopback, RecordTtl),
+            new DnsAddressRecord(DnsName.Parse("service/name.example.com"), IPAddress.IPv6Loopback, RecordTtl),
+            new DnsCNameRecord(DnsName.Parse("_acme-challenge.example.com"), DnsName.Parse("validation.example.net"), RecordTtl)
+        ];
+        var response = new DnsResponse(42, answers: records);
+        Span<byte> packet = stackalloc byte[2048];
+        var length = DnsResponseEncoder.Encode(packet, response);
+        var decoded = DnsResponseEncoder.Decode(packet[..length]);
+        for (var i = 0; i < records.Length; ++i)
+            DnsAssert.AreEqual(records[i], decoded.Answers[i]);
+        Span<byte> encoded = stackalloc byte[2048];
+        var encodedLength = DnsResponseEncoder.Encode(encoded, decoded);
+        Assert.IsTrue(packet[..length].SequenceEqual(encoded[..encodedLength]));
+    }
 
     [TestMethod]
     public void Test_Encode_Decode_NewRecordTypes()

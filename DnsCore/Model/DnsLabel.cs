@@ -17,11 +17,27 @@ public readonly struct DnsLabel
 
     private readonly StringSegment _label;
 
-    public ReadOnlySpan<char> Span => _label.AsSpan();
+    public ReadOnlySpan<char> Span => _label;
 
     public byte Length => (byte)_label.Length;
 
     public bool IsEmpty => _label.Length == 0;
+
+    public bool IsHostName
+    {
+        get
+        {
+            var text = Span;
+            if (text.IsEmpty || !IsAlphaNumeric(text[0]) || (text.Length > 1 && !IsAlphaNumeric(text[^1])))
+                return false;
+            for (var i = 1; i < text.Length - 1; ++i)
+                if (!IsAlphaNumeric(text[i]) && text[i] != '-')
+                    return false;
+            return true;
+
+            static bool IsAlphaNumeric(char value) => value is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9');
+        }
+    }
 
     internal DnsLabel(StringSegment label) => _label = label;
 
@@ -30,27 +46,9 @@ public readonly struct DnsLabel
         if (label.Length > MaxLength)
             throw new ArgumentException("Label length exceeds maximum length", nameof(label));
 
-        if (label.Length > 0)
-        {
-            var span = label.AsSpan();
-            if (!IsOuterChar(span[0]))
-                throw new ArgumentException("First character of the label must be an ASCII letter, digit, underscore, or asterisk", nameof(label));
-
-            if (label.Length > 1)
-            {
-                for (var i = 1; i < label.Length - 1; ++i)
-                    if (!IsInnerChar(span[i]))
-                        throw new ArgumentException("Middle characters of the label must be an ASCII letter, digit, hyphen, underscore, or asterisk", nameof(label));
-
-                if (!IsOuterChar(span[^1]))
-                    throw new ArgumentException("Last character of the label must be an ASCII letter, digit, underscore, or asterisk", nameof(label));
-            }
-        }
-
-        return;
-
-        static bool IsOuterChar(char c) => c is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9') or '_' or '*';
-        static bool IsInnerChar(char c) => IsOuterChar(c) || c == '-';
+        foreach (var value in label.AsSpan())
+            if (value is < '!' or > '~' or '.' or '\\')
+                throw new ArgumentException("DNS labels require printable ASCII without spaces, dots, or backslashes", nameof(label));
     }
 
     internal static DnsLabel ParseCore(StringSegment label)
@@ -72,7 +70,15 @@ public readonly struct DnsLabel
         }
     }
 
+    /// <summary>Parses printable ASCII label text without spaces, dots, or backslashes.</summary>
     public static DnsLabel Parse(string label) => ParseCore(label);
+
+    public static DnsLabel ParseHostName(string label)
+    {
+        ArgumentNullException.ThrowIfNull(label);
+        var result = Parse(label);
+        return result.IsHostName ? result : throw new FormatException("Invalid hostname label");
+    }
 
     public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
     {
@@ -93,13 +99,13 @@ public readonly struct DnsLabel
         return new string(buffer);
     }
 
-    public override string ToString() => ToString(default, default);
+    public override string ToString() => ToString(null, null);
 
     public override bool Equals(object? obj) => obj is DnsLabel label && Equals(label);
 
     public bool Equals(DnsLabel other) => _label.Equals(other._label, StringComparison.OrdinalIgnoreCase);
 
-    public override int GetHashCode() => _label.GetHashCode();
+    public override int GetHashCode() => string.GetHashCode(_label, StringComparison.OrdinalIgnoreCase);
 
     public static bool operator ==(DnsLabel left, DnsLabel right) => left.Equals(right);
 

@@ -31,7 +31,7 @@ internal static class DnsNameEncoder
 
     public static DnsName Decode(ref DnsReader reader) => DecodeInternal(ref reader);
 
-    private static DnsName DecodeInternal(ref DnsReader reader, int maxLength = DnsName.MaxLength, bool canStartWithCompression = true)
+    private static DnsName DecodeInternal(ref DnsReader reader, int maxLength = DnsName.MaxLength + 1, bool canStartWithCompression = true)
     {
         if (maxLength <= 0)
             throw new FormatException("DNS name too long");

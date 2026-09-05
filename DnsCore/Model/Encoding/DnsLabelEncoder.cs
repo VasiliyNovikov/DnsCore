@@ -1,10 +1,12 @@
+using System.Text;
+
 using DnsCore.IO;
 
 namespace DnsCore.Model.Encoding;
 
 internal static class DnsLabelEncoder
 {
-    private static readonly System.Text.Encoding Encoding = System.Text.Encoding.ASCII;
+    private static readonly System.Text.Encoding Encoding = System.Text.Encoding.GetEncoding("us-ascii", EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback);
 
     public static void Encode(ref DnsWriter writer, DnsLabel label)
     {
