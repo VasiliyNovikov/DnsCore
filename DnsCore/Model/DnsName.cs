@@ -11,7 +11,8 @@ public sealed class DnsName
     , IEqualityOperators<DnsName, DnsName, bool>
     , ISpanFormattable
 {
-    public const byte MaxLength = 255;
+    /// <summary>Maximum presentation length, including the trailing dot.</summary>
+    public const byte MaxLength = 254;
     private const char Separator = '.';
 
     public static DnsName Empty { get; } = new(DnsLabel.Empty, null);
@@ -19,6 +20,8 @@ public sealed class DnsName
     public int Length { get; }
 
     public bool IsEmpty => Length == 1;
+
+    public bool IsHostName => !IsEmpty && Label.IsHostName && (Parent is null || Parent.IsEmpty || Parent.IsHostName);
 
     public DnsLabel Label { get; }
 
@@ -53,6 +56,10 @@ public sealed class DnsName
 
         if (name.Length == 0)
             return Empty;
+        if (name.Length > MaxLength - 1)
+            throw new FormatException("Name length exceeds maximum length");
+        if (name[^1] == Separator)
+            throw new FormatException("DNS name contains an empty label");
 
         var separatorIndex = name.IndexOf(Separator);
         try
@@ -68,6 +75,14 @@ public sealed class DnsName
     }
 
     public static DnsName Parse(string name) => ParseCore(name);
+
+    /// <summary>Parses literal ASCII hostname text, optionally ending in a dot. Does not perform IDNA conversion.</summary>
+    public static DnsName ParseHostName(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        var result = Parse(name);
+        return result.IsHostName ? result : throw new FormatException("Invalid hostname");
+    }
 
     public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
     {

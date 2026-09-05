@@ -14,6 +14,23 @@ namespace DnsCore.Tests;
 public class DnsEncodingTests
 {
     [TestMethod]
+    [DataRow(0x00)]
+    [DataRow(0x20)]
+    [DataRow(0x2E)]
+    [DataRow(0x5C)]
+    [DataRow(0x7F)]
+    [DataRow(0x80)]
+    [DataRow(0xFF)]
+    public void Decode_UnsupportedLabelByte_Throws(int value)
+    {
+        var packet = new byte[512];
+        var length = DnsRequestEncoder.Encode(packet, new DnsRequest(DnsName.Parse("a.example"), DnsRecordType.A));
+        packet[13] = (byte)value; // First label character after the DNS header and label length.
+
+        Assert.ThrowsExactly<FormatException>(() => DnsRequestEncoder.Decode(packet.AsSpan(0, length)));
+    }
+
+    [TestMethod]
     public void Test_Encode_Decode()
     {
         List<DnsRequest> requests = [

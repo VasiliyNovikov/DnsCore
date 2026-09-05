@@ -18,10 +18,26 @@ Unknown record types are exposed as `DnsRawRecord` so their RDATA remains byte-t
 
 ## DNS labels
 
-Labels support ASCII letters, digits, underscores, asterisks (`*`), and interior hyphens, up to 63 bytes. Asterisks are preserved literally anywhere in a label, including `*.example.com` and `a*b.example.com`. This supports parsing and wire encoding/decoding of wildcard names; it does not add wildcard matching or automatic wildcard answers to the server.
+Labels support printable ASCII (`!` through `~`) except dots and backslashes, up to 63 bytes per label and 255 bytes per complete uncompressed name (including length prefixes and the root octet). All record types use these same label rules, without additional hostname restrictions during encoding or decoding. This supports classless reverse-DNS names containing `/` and SOA mailbox punctuation such as `+`.
+
+`DnsName.Parse` always treats dots as label separators. Empty text and `.` represent the root name, but interior empty labels are rejected. Escape sequences are not supported. Spaces, control characters, backslashes, non-ASCII characters, and dots within a label are rejected in both text parsing and wire decoding. Consequently, SOA mailbox labels containing dots and DNS-SD instance labels containing spaces or Unicode are not currently supported.
+
+`DnsLabel` reuses input `StringSegment`s; `Span` exposes the unchanged text and `Length` counts characters/bytes. `DnsName.Length` counts presentation characters including the trailing dot, with `DnsName.MaxLength` equal to 254. Uncompressed wire size is one byte larger for non-root names; the root occupies one byte. Formatting is not shell escaping or a zone-file serializer.
+
+```csharp
+var reverse = DnsName.Parse("129.128/26.2.0.192.in-addr.arpa.");
+var host = DnsName.ParseHostName("printer.example.com");
+bool isHostName = reverse.IsHostName; // false: contains '/'
+```
+
+Both labels and names offer `IsHostName` and `ParseHostName` for optional ASCII letters/digits/interior-hyphens validation. Leading digits and a trailing name dot are accepted; root names, wildcards, and underscores are not hostnames. IDNA conversion is left to callers; these APIs validate syntax, not IDNA A-labels or domain registration.
+
+Equality and compression matching ignore ASCII letter case; hashing follows the same rules. Compression may reuse the casing of an earlier suffix. Asterisks remain literal; parsing them does not add wildcard matching or automatic wildcard answers.
+
+Parsing and construction reject names exceeding 255 wire bytes; parsing also rejects repeated trailing dots. The constructor preserves the supplied parent. ASCII hostname presentation and `DnsName.Length` remain unchanged.
 
 ## DNAME support
 
 Typed DNAME support covers wire encoding and decoding. Automatic subtree substitution, synthesized CNAME generation, and resolver following are not implemented.
 
-DNAME owners and targets use the same `DnsName` and `DnsLabel` representation as other records, so arbitrary DNS label octets such as `/` are not supported.
+DNAME owners and targets support the same general DNS labels as other records.
