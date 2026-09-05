@@ -1,3 +1,4 @@
+using System;
 using System.Text;
 
 using DnsCore.IO;
@@ -22,7 +23,7 @@ internal static class DnsLabelEncoder
         if (length == 0)
             return DnsLabel.Empty;
 
-        var labelStr = Encoding.GetString(reader.Read(length));
+        var labelStr = Encoding.GetString(reader.Read(length)).AsMemory();
         DnsLabel.Validate(labelStr);
         return new DnsLabel(labelStr);
     }

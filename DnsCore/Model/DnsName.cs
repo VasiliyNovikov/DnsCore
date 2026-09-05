@@ -2,8 +2,6 @@ using System;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 
-using Microsoft.Extensions.Primitives;
-
 namespace DnsCore.Model;
 
 public sealed class DnsName
@@ -45,28 +43,28 @@ public sealed class DnsName
         Length = length;
     }
 
-    private static DnsName ParseCore(StringSegment name)
+    private static DnsName ParseCore(ReadOnlyMemory<char> name)
     {
         if (name.Length == 0)
             return Empty;
 
         var lastIndex = name.Length - 1;
-        if (name[lastIndex] == Separator)
-            name = name.Subsegment(0, lastIndex);
+        if (name.Span[lastIndex] == Separator)
+            name = name[..lastIndex];
 
         if (name.Length == 0)
             return Empty;
         if (name.Length > MaxLength - 1)
             throw new FormatException("Name length exceeds maximum length");
-        if (name[^1] == Separator)
+        if (name.Span[^1] == Separator)
             throw new FormatException("DNS name contains an empty label");
 
-        var separatorIndex = name.IndexOf(Separator);
+        var separatorIndex = name.Span.IndexOf(Separator);
         try
         {
             return separatorIndex == -1
                 ? new DnsName(DnsLabel.ParseCore(name), Empty)
-                : new DnsName(DnsLabel.ParseCore(name.Subsegment(0, separatorIndex)), ParseCore(name.Subsegment(separatorIndex + 1)));
+                : new DnsName(DnsLabel.ParseCore(name[..separatorIndex]), ParseCore(name[(separatorIndex + 1)..]));
         }
         catch (ArgumentException e)
         {
@@ -74,7 +72,7 @@ public sealed class DnsName
         }
     }
 
-    public static DnsName Parse(string name) => ParseCore(name);
+    public static DnsName Parse(string name) => ParseCore(name.AsMemory());
 
     /// <summary>Parses literal ASCII hostname text, optionally ending in a dot. Does not perform IDNA conversion.</summary>
     public static DnsName ParseHostName(string name)
@@ -114,7 +112,7 @@ public sealed class DnsName
         return new string(buffer);
     }
 
-    public override string ToString() => ToString(default, default);
+    public override string ToString() => ToString(null, null);
 
     public bool Equals(DnsName? other)
     {
