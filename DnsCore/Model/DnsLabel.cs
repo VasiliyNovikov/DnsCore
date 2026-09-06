@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 
@@ -41,42 +42,56 @@ public readonly struct DnsLabel
 
     internal static void Validate(ReadOnlyMemory<char> label)
     {
+        if (GetValidationError(label) is { } error)
+            throw new ArgumentException(error, nameof(label));
+    }
+
+    private static string? GetValidationError(ReadOnlyMemory<char> label)
+    {
         if (label.Length > MaxLength)
-            throw new ArgumentException("Label length exceeds maximum length", nameof(label));
+            return "Label length exceeds maximum length";
 
         foreach (var value in label.Span)
             if (value is < '!' or > '~' or '.' or '\\')
-                throw new ArgumentException("DNS labels require printable ASCII without spaces, dots, or backslashes", nameof(label));
+                return "DNS labels require printable ASCII without spaces, dots, or backslashes";
+
+        return null;
     }
 
-    internal static DnsLabel ParseCore(ReadOnlyMemory<char> label)
+    internal static bool TryParseCore(ReadOnlyMemory<char> label, out DnsLabel result, [NotNullWhen(false)] out string? validationError)
     {
-        switch (label.Length)
+        if ((validationError = GetValidationError(label)) is not null)
         {
-            case 0:
-                return Empty;
-            default:
-                try
-                {
-                    Validate(label);
-                    return new DnsLabel(label);
-                }
-                catch (ArgumentException e)
-                {
-                    throw new FormatException(e.Message, e);
-                }
+            result = default;
+            return false;
         }
+
+        result = label.IsEmpty ? Empty : new DnsLabel(label);
+        return true;
     }
 
     /// <summary>Parses printable ASCII label text without spaces, dots, or backslashes.</summary>
-    public static DnsLabel Parse(string label) => ParseCore(label.AsMemory());
-
-    public static DnsLabel ParseHostName(string label)
+    public static DnsLabel Parse(string? label)
     {
         ArgumentNullException.ThrowIfNull(label);
-        var result = Parse(label);
-        return result.IsHostName ? result : throw new FormatException("Invalid hostname label");
+        return TryParseCore(label.AsMemory(), out var result, out var error) ? result : throw new FormatException(error);
     }
+
+    /// <summary>Tries to parse printable ASCII label text. Null or invalid input returns false and an empty label.</summary>
+    public static bool TryParse(string? label, out DnsLabel result)
+    {
+        result = default;
+        return label is not null && TryParseCore(label.AsMemory(), out result, out _);
+    }
+
+    public static DnsLabel ParseHostName(string? label)
+    {
+        return Parse(label) is { IsHostName: true } result
+            ? result
+            : throw new FormatException("Invalid hostname label");
+    }
+
+    public static bool TryParseHostName(string? label, out DnsLabel result) => TryParse(label, out result) && result.IsHostName;
 
     public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
     {
