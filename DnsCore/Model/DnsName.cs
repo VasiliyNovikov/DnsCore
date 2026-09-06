@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 
@@ -43,44 +44,69 @@ public sealed class DnsName
         Length = length;
     }
 
-    private static DnsName ParseCore(ReadOnlyMemory<char> name)
+    private static bool TryParseCore(ReadOnlyMemory<char> name, [NotNullWhen(true)] out DnsName? result, [NotNullWhen(false)] out string? validationError)
     {
-        if (name.Length == 0)
-            return Empty;
-
-        var lastIndex = name.Length - 1;
-        if (name.Span[lastIndex] == Separator)
-            name = name[..lastIndex];
+        result = null;
+        validationError = null;
+        if (!name.IsEmpty && name.Span[^1] == Separator)
+            name = name[..^1];
 
         if (name.Length == 0)
-            return Empty;
+        {
+            result = Empty;
+            return true;
+        }
         if (name.Length > MaxLength - 1)
-            throw new FormatException("Name length exceeds maximum length");
+        {
+            validationError = "Name length exceeds maximum length";
+            return false;
+        }
         if (name.Span[^1] == Separator)
-            throw new FormatException("DNS name contains an empty label");
+        {
+            validationError = "DNS name contains an empty label";
+            return false;
+        }
 
         var separatorIndex = name.Span.IndexOf(Separator);
-        try
+        var labelText = separatorIndex == -1 ? name : name[..separatorIndex];
+        if (labelText.IsEmpty)
         {
-            return separatorIndex == -1
-                ? new DnsName(DnsLabel.ParseCore(name), Empty)
-                : new DnsName(DnsLabel.ParseCore(name[..separatorIndex]), ParseCore(name[(separatorIndex + 1)..]));
+            validationError = "DNS name contains an empty label";
+            return false;
         }
-        catch (ArgumentException e)
-        {
-            throw new FormatException(e.Message, e);
-        }
+        if (!DnsLabel.TryParseCore(labelText, out var label, out validationError))
+            return false;
+
+        var parent = Empty;
+        if (separatorIndex != -1 && !TryParseCore(name[(separatorIndex + 1)..], out parent, out validationError))
+            return false;
+
+        result = new DnsName(label, parent);
+        return true;
     }
 
-    public static DnsName Parse(string name) => ParseCore(name.AsMemory());
-
-    /// <summary>Parses literal ASCII hostname text, optionally ending in a dot. Does not perform IDNA conversion.</summary>
-    public static DnsName ParseHostName(string name)
+    public static DnsName Parse(string? name)
     {
         ArgumentNullException.ThrowIfNull(name);
-        var result = Parse(name);
-        return result.IsHostName ? result : throw new FormatException("Invalid hostname");
+        return TryParseCore(name.AsMemory(), out var result, out var error) ? result : throw new FormatException(error);
     }
+
+    /// <summary>Tries to parse literal ASCII DNS text, optionally ending in a dot. Null or invalid input returns false and null.</summary>
+    public static bool TryParse(string? name, [NotNullWhen(true)] out DnsName? result)
+    {
+        result = null;
+        return name is not null && TryParseCore(name.AsMemory(), out result, out _);
+    }
+
+    /// <summary>Parses literal ASCII hostname text, optionally ending in a dot. Does not perform IDNA conversion.</summary>
+    public static DnsName ParseHostName(string? name)
+    {
+        return Parse(name) is { IsHostName: true } result
+            ? result
+            : throw new FormatException("Invalid hostname");
+    }
+
+    public static bool TryParseHostName(string? name, [NotNullWhen(true)] out DnsName? result) => TryParse(name, out result) && result.IsHostName;
 
     public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
     {

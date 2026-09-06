@@ -77,6 +77,8 @@ DnsCore is a lightweight .NET DNS client and server library targeting net8.0, ne
 
 **Request-reply pattern:** Responses are created via `request.Reply(answers)` or `request.Reply(DnsResponseStatus.NameError)` — this ensures ID and question correlation per RFC 1035.
 
+**Text parsing:** `DnsName.TryParse(string?, out DnsName?)` and `DnsLabel.TryParse(string?, out DnsLabel)` share the `Parse` syntax rules and return false for null or invalid input, with null/default outputs. Empty text succeeds (as does `.` for names). `Parse` and `ParseHostName` reject null with `ArgumentNullException`; invalid text throws `FormatException` with the validation error. Both types expose `TryParseHostName`, which retains the parsed result when DNS parsing succeeds but hostname validation fails.
+
 ## CI
 
 The GitHub Actions pipeline (`.github/workflows/pipeline.yml`) has three jobs:
