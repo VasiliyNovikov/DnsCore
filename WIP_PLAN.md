@@ -5,8 +5,8 @@
 - WIP branch: `wip/typed-dns-records`
 - Initial snapshot commit: `b24958d` (`WIP typed DNS record support`)
 - Original snapshot base: `8feacf3` (`master` when the snapshot was created)
-- Rebased implementation reference: `23cc964` (`Add typed DNS record support`)
-- Verified extraction baseline: `76af129` (`master`, including the simplified README)
+- Rebased implementation reference: `27b704c` (`Add typed DNS record support`)
+- Verified extraction baseline: `67c2706` (`master`, including DNS message-size limits)
 
 This branch preserves the complete implementation as a reference. Production changes should be extracted from it into smaller topic branches rather than merged directly.
 
@@ -24,13 +24,12 @@ This branch preserves the complete implementation as a reference. Production cha
 ### 1. Encoding Safeguards
 
 - Add a defensive compression-offset check against `0x3FFF` before emitting a pointer.
-- Bound logical DNS messages to 65,535 bytes.
 - Add record encoder validation hooks needed by typed codecs.
-- Add focused boundary and malformed-data tests.
+- Add focused compression-boundary and typed-codec validation tests.
 
 This is foundational and should not add new public record types.
 
-Adapt the WIP boundary tests to use records already on master: some currently depend on KEY, which is extracted later. Preserve existing large-response coverage and add exact `0x3FFF`/`0x4000` boundary checks.
+Preserve master's existing message-size and large-response coverage; do not extract duplicate size-limit checks or tests from the WIP reference. Add exact `0x3FFF`/`0x4000` compression-boundary checks using records already on master, without depending on KEY, which is extracted later.
 
 ### 2. Generic Class-Aware Encoder Registry
 
