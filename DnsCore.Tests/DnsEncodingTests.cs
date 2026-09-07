@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Net;
 
@@ -206,6 +207,85 @@ public class DnsEncodingTests
     }
 
     [TestMethod]
+    [DataRow(65_536)]
+    [DataRow(70_000)]
+    public void Test_Encode_SmallMessageIntoOversizedBuffer_RoundTrips(int bufferSize)
+    {
+        var request = new DnsRequest(DnsName.Parse("example.com"), DnsRecordType.A);
+        var buffer = new byte[bufferSize];
+
+        var length = DnsRequestEncoder.Encode(buffer, request);
+        var decoded = DnsRequestEncoder.Decode(buffer.AsSpan(0, length));
+
+        Assert.AreEqual(request.Id, decoded.Id);
+        Assert.AreSequenceEqual(request.Questions, decoded.Questions);
+    }
+
+    [TestMethod]
+    [DataRow(65_535)]
+    [DataRow(65_536)]
+    [DataRow(70_000)]
+    public void Test_Encode_Decode_MaximumSizeMessage(int bufferSize)
+    {
+        // 12-byte message header and 11-byte record header with a root owner.
+        var record = new DnsRawRecord(DnsName.Empty, new byte[UInt16.MaxValue - 23], (DnsRecordType)65400, DnsClass.IN, TimeSpan.Zero);
+        var response = new DnsResponse(42, answers: [record]);
+        var buffer = new byte[bufferSize];
+
+        var length = DnsResponseEncoder.Encode(buffer, response);
+        var decoded = DnsResponseEncoder.Decode(buffer.AsSpan(0, length));
+
+        Assert.AreEqual(UInt16.MaxValue, length);
+        Assert.HasCount(1, decoded.Answers);
+        DnsAssert.AreEqual(record, decoded.Answers[0]);
+    }
+
+    [TestMethod]
+    [DataRow(65_535)]
+    [DataRow(65_536)]
+    [DataRow(70_000)]
+    public void Test_Encode_MessageAboveMaximum_Throws(int bufferSize)
+    {
+        // The complete message is exactly one byte above the limit.
+        var record = new DnsRawRecord(DnsName.Empty, new byte[UInt16.MaxValue - 22], (DnsRecordType)65400, DnsClass.IN, TimeSpan.Zero);
+        var response = new DnsResponse(42, answers: [record]);
+        var buffer = new byte[bufferSize];
+
+        var error = Assert.ThrowsExactly<FormatException>(() => DnsResponseEncoder.Encode(buffer, response));
+        Assert.IsInstanceOfType<ArgumentOutOfRangeException>(error.InnerException);
+        StringAssert.StartsWith(error.Message, $"Invalid DNS message: Message exceeds the maximum length of {UInt16.MaxValue} bytes");
+    }
+
+    [TestMethod]
+    public void Test_Encode_InsufficientBuffer_ReportsBufferSize()
+    {
+        var request = new DnsRequest(DnsName.Parse("example.com"), DnsRecordType.A);
+        var buffer = new byte[12];
+
+        var error = Assert.ThrowsExactly<FormatException>(() => DnsRequestEncoder.Encode(buffer, request));
+        Assert.IsInstanceOfType<ArgumentException>(error.InnerException);
+        Assert.AreEqual($"Invalid DNS message: {error.InnerException.Message}", error.Message);
+        StringAssert.Contains(error.Message, "too short");
+    }
+
+    [TestMethod]
+    public void Test_Decode_MessageAboveMaximum_Throws()
+    {
+        var data = new byte[UInt16.MaxValue - 23];
+        var record = new DnsRawRecord(DnsName.Empty, data, (DnsRecordType)65400, DnsClass.IN, TimeSpan.Zero);
+        var buffer = new byte[UInt16.MaxValue + 1];
+        var length = DnsResponseEncoder.Encode(buffer, new DnsResponse(42, answers: [record]));
+        Assert.AreEqual(UInt16.MaxValue, length);
+        DnsAssert.AreEqual(record, DnsResponseEncoder.Decode(buffer.AsSpan(0, length)).Answers[0]);
+
+        // Extend the raw RDATA by one byte, keeping the record length consistent.
+        BinaryPrimitives.WriteUInt16BigEndian(buffer.AsSpan(21, 2), (ushort)(data.Length + 1));
+
+        var error = Assert.ThrowsExactly<FormatException>(() => DnsResponseEncoder.Decode(buffer));
+        Assert.AreEqual($"Invalid DNS message: buffer exceeds the maximum length of {UInt16.MaxValue} bytes", error.Message);
+    }
+
+    [TestMethod]
     [DataRow(DnsRecordType.A)]
     [DataRow(DnsRecordType.AAAA)]
     [DataRow(DnsRecordType.TXT)]
@@ -238,7 +318,7 @@ public class DnsEncodingTests
             case DnsRecordType.A:
             case DnsRecordType.AAAA:
                 Assert.IsInstanceOfType<DnsAddressRecord>(actualAnswer);
-                CollectionAssert.AreEqual(rawData, ((DnsAddressRecord)actualAnswer).Data.GetAddressBytes());
+                Assert.AreSequenceEqual(rawData, ((DnsAddressRecord)actualAnswer).Data.GetAddressBytes());
                 break;
             case DnsRecordType.TXT:
                 Assert.IsInstanceOfType<DnsTextRecord>(actualAnswer);

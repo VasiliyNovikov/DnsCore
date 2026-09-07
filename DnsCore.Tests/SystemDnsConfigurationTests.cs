@@ -12,7 +12,7 @@ public class SystemDnsConfigurationTests
     {
         var addresses = SystemDnsConfiguration.GetAddresses();
         Assert.IsNotEmpty(addresses);
-        CollectionAssert.AllItemsAreNotNull(addresses);
-        CollectionAssert.AllItemsAreUnique(addresses);
+        Assert.AreAllNotNull(addresses);
+        Assert.AreAllDistinct(addresses);
     }
 }

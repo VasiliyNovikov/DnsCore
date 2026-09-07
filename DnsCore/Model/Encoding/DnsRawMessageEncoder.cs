@@ -16,6 +16,9 @@ internal static class DnsRawMessageEncoder
 
     public static DnsRawMessage Decode(ReadOnlySpan<byte> buffer)
     {
+        if (buffer.Length > UInt16.MaxValue)
+            throw new FormatException($"Invalid DNS message: buffer exceeds the maximum length of {UInt16.MaxValue} bytes");
+
         var reader = new DnsReader(buffer);
         try
         {
@@ -59,7 +62,7 @@ internal static class DnsRawMessageEncoder
         }
         catch (ArgumentException e)
         {
-            throw new FormatException($"Buffer is too short: {e.Message}", e);
+            throw new FormatException($"Invalid DNS message: {e.Message}", e);
         }
     }
 
