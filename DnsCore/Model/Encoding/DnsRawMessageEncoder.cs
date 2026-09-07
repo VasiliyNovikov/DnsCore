@@ -9,7 +9,6 @@ internal static class DnsRawMessageEncoder
 {
     public static ushort Encode(Span<byte> buffer, DnsRawMessage message)
     {
-        buffer = buffer[..Math.Min(buffer.Length, UInt16.MaxValue)];
         var writer = new DnsWriter(buffer);
         Encode(ref writer, message);
         return writer.Position;
@@ -63,7 +62,7 @@ internal static class DnsRawMessageEncoder
         }
         catch (ArgumentException e)
         {
-            throw new FormatException($"Buffer is too short: {e.Message}", e);
+            throw new FormatException($"Invalid DNS message: {e.Message}", e);
         }
     }
 

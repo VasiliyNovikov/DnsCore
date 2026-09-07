@@ -241,6 +241,7 @@ public class DnsEncodingTests
     }
 
     [TestMethod]
+    [DataRow(65_535)]
     [DataRow(65_536)]
     [DataRow(70_000)]
     public void Test_Encode_MessageAboveMaximum_Throws(int bufferSize)
@@ -250,7 +251,21 @@ public class DnsEncodingTests
         var response = new DnsResponse(42, answers: [record]);
         var buffer = new byte[bufferSize];
 
-        Assert.ThrowsExactly<FormatException>(() => DnsResponseEncoder.Encode(buffer, response));
+        var error = Assert.ThrowsExactly<FormatException>(() => DnsResponseEncoder.Encode(buffer, response));
+        Assert.IsInstanceOfType<ArgumentOutOfRangeException>(error.InnerException);
+        StringAssert.StartsWith(error.Message, $"Invalid DNS message: Message exceeds the maximum length of {UInt16.MaxValue} bytes");
+    }
+
+    [TestMethod]
+    public void Test_Encode_InsufficientBuffer_ReportsBufferSize()
+    {
+        var request = new DnsRequest(DnsName.Parse("example.com"), DnsRecordType.A);
+        var buffer = new byte[12];
+
+        var error = Assert.ThrowsExactly<FormatException>(() => DnsRequestEncoder.Encode(buffer, request));
+        Assert.IsInstanceOfType<ArgumentException>(error.InnerException);
+        Assert.AreEqual($"Invalid DNS message: {error.InnerException.Message}", error.Message);
+        StringAssert.Contains(error.Message, "too short");
     }
 
     [TestMethod]
