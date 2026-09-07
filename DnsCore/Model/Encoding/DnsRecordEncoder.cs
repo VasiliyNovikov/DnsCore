@@ -31,7 +31,14 @@ internal static class DnsRecordEncoder
         RegisterTypeEncoder(DnsRecordType.SRV, DnsRecordServiceDataEncoder.Instance);
         RegisterTypeEncoder(DnsRecordType.DNAME, DnsRecordDNameDataEncoder.Instance);
         RegisterTypeEncoder(DnsRecordType.TXT, DnsRecordTextDataEncoder.Instance);
+        RegisterTypeEncoder(DnsRecordType.RP, DnsRecordResponsiblePersonDataEncoder.Instance);
+        RegisterTypeEncoder(DnsRecordType.AFSDB, DnsRecordAfsDatabaseDataEncoder.Instance);
+        RegisterTypeEncoder(DnsRecordType.RT, DnsRecordRouteThroughDataEncoder.Instance);
+        RegisterTypeEncoder(DnsRecordType.SIG, DnsRecordSignatureDataEncoder.Instance);
+        RegisterTypeEncoder(DnsRecordType.KEY, DnsRecordKeyDataEncoder.Instance);
         RegisterTypeEncoder(DnsRecordType.PX, DnsRecordMailMappingDataEncoder.Instance, DnsClass.IN);
+        RegisterTypeEncoder(DnsRecordType.NXT, DnsRecordNextDomainDataEncoder.Instance);
+        RegisterTypeEncoder(DnsRecordType.NAPTR, DnsRecordNamingAuthorityPointerDataEncoder.Instance);
     }
 
     public static void RegisterTypeEncoder(DnsRecordType type, DnsRecordDataEncoder encoder) => Encoders[(ushort)type] = new(encoder, null);
@@ -51,13 +58,15 @@ internal static class DnsRecordEncoder
 
     public static void Encode(ref DnsWriter writer, DnsRecord record)
     {
+        var encoder = GetEncoder(record.RecordType, record.Class);
+        encoder.Validate(record);
         DnsRecordBaseEncoder.Encode(ref writer, record);
         writer.WriteTime(record.Ttl);
 
         var dataLenBuffer = writer.ProvideBufferAndAdvance(2);
 
         var dataPosition = writer.Position;
-        GetEncoder(record.RecordType, record.Class).Encode(ref writer, record);
+        encoder.Encode(ref writer, record);
 
         BinaryPrimitives.WriteUInt16BigEndian(dataLenBuffer, (ushort)(writer.Position - dataPosition));
     }

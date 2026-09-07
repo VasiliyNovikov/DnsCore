@@ -16,6 +16,8 @@ internal ref struct DnsReader
 
     public ushort Position { get; private set; }
 
+    public readonly ushort RemainingLength => (ushort)(_slicedBuffer.Length - Position);
+
     private DnsReader(ReadOnlySpan<byte> originalBuffer, ushort position, ushort length)
     {
         _originalBuffer = originalBuffer;
