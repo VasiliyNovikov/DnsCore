@@ -5,8 +5,8 @@
 - WIP branch: `wip/typed-dns-records`
 - Initial snapshot commit: `b24958d` (`WIP typed DNS record support`)
 - Original snapshot base: `8feacf3` (`master` when the snapshot was created)
-- Rebased implementation reference: `27b704c` (`Add typed DNS record support`)
-- Verified extraction baseline: `67c2706` (`master`, including DNS message-size limits)
+- Rebased implementation reference: `736cd30` (`Add typed DNS record support`)
+- Verified extraction baseline: `6cf38b5` (`master`, including DNS message-size limits and the class-aware encoder registry)
 
 This branch preserves the complete implementation as a reference. Production changes should be extracted from it into smaller topic branches rather than merged directly.
 
@@ -31,17 +31,7 @@ This is foundational and should not add new public record types.
 
 Preserve master's existing message-size and large-response coverage; do not extract duplicate size-limit checks or tests from the WIP reference. Add exact `0x3FFF`/`0x4000` compression-boundary checks using records already on master, without depending on KEY, which is extracted later.
 
-### 2. Generic Class-Aware Encoder Registry
-
-- Extend the existing type-indexed encoder registry with registration metadata.
-- Allow each registration to optionally declare supported DNS classes.
-- Treat registrations without a class list as class-independent.
-- Fall back to `DnsRawRecord` when a class-restricted encoder does not support the received class.
-- Cover unrestricted lookup, restricted lookup, and raw fallback.
-
-PX will later register only for `DnsClass.IN`. Keep this topic's tests independent of later typed records; extract PX-specific fallback tests with PX.
-
-### 3. Simple Name-Bearing Records
+### 2. Simple Name-Bearing Records
 
 - Add typed RP support.
 - Add typed AFSDB support.
@@ -51,14 +41,14 @@ PX will later register only for `DnsClass.IN`. Keep this topic's tests independe
 
 These records share name-handling behavior but retain separate public models and codecs.
 
-### 4. PX
+### 3. PX
 
 - Add `DnsMailMappingRecord` for the RFC 2163 IN-class format.
 - Register the PX codec only for `DnsClass.IN`.
 - Preserve non-IN PX as opaque `DnsRawRecord` data.
 - Keep raw IN PX rejected because its RDATA may contain message-relative pointers.
 
-### 5. NAPTR
+### 4. NAPTR
 
 - Add typed order, preference, flags, services, regular-expression, and replacement fields.
 - Encode each text field as one length-prefixed DNS character string.
@@ -66,14 +56,14 @@ These records share name-handling behavior but retain separate public models and
 - Emit replacement uncompressed and accept historical compression while decoding.
 - Do not execute DDDS rules or regular expressions.
 
-### 6. NXT
+### 5. NXT
 
 - Add the next-domain name and opaque legacy bitmap representation.
 - Keep the bitmap distinct from modern NSEC bitmap encoding.
 - Emit the name uncompressed and accept historical compression while decoding.
 - Do not implement denial-of-existence validation.
 
-### 7. SIG And KEY
+### 6. SIG And KEY
 
 - Add typed RFC 2535 fixed fields.
 - Preserve algorithm-specific signature and key bytes.
@@ -83,7 +73,7 @@ These records share name-handling behavior but retain separate public models and
 - Preserve the explicit legacy no-key form without treating these records as modern DNSSEC.
 - Do not implement signing, verification, or trust decisions.
 
-### 8. Documentation And Version
+### 7. Documentation And Version
 
 - Update `README.md` with supported records and wire-only limitations while preserving master's concise structure and getting-started links.
 - Update `AGENTS.md` architecture notes.
@@ -105,6 +95,8 @@ The extracted work provides typed wire encoding and decoding only. It does not i
 - General compression pointer-chain redesign
 
 ## Acceptance Gates
+
+The class-aware encoder registry is already on master; do not re-extract it. Generic unrestricted lookup, restricted lookup, and raw-fallback test coverage remains outstanding and should be added independently of later typed records. Extract PX-specific fallback tests with PX.
 
 For each topic:
 
