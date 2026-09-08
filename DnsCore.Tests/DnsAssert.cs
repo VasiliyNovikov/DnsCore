@@ -1,4 +1,4 @@
-    using DnsCore.Model;
+using DnsCore.Model;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
