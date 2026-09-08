@@ -56,9 +56,6 @@ internal static class DnsAssert
             case DnsRecordType.RT:
                 Assert.AreEqual(((DnsRouteThroughRecord)expected).Data, ((DnsRouteThroughRecord)actual).Data);
                 break;
-            case DnsRecordType.PX when expected is DnsMailMappingRecord expectedMailMapping:
-                Assert.AreEqual(expectedMailMapping.Data, ((DnsMailMappingRecord)actual).Data);
-                break;
             case DnsRecordType.NAPTR:
                 Assert.AreEqual(((DnsNamingAuthorityPointerRecord)expected).Data, ((DnsNamingAuthorityPointerRecord)actual).Data);
                 break;

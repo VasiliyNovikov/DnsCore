@@ -5,8 +5,8 @@
 - WIP branch: `wip/typed-dns-records`
 - Initial snapshot commit: `b24958d` (`WIP typed DNS record support`)
 - Original snapshot base: `8feacf3` (`master` when the snapshot was created)
-- Rebased implementation reference: `736cd30` (`Add typed DNS record support`)
-- Verified extraction baseline: `6cf38b5` (`master`, including DNS message-size limits and the class-aware encoder registry)
+- Rebased implementation reference: `e91f963` (`Add typed DNS record support`)
+- Verified extraction baseline: `a46b38f` (`master`, including DNS message-size limits, the class-aware encoder registry, and PX support)
 
 This branch preserves the complete implementation as a reference. Production changes should be extracted from it into smaller topic branches rather than merged directly.
 
@@ -41,14 +41,7 @@ Preserve master's existing message-size and large-response coverage; do not extr
 
 These records share name-handling behavior but retain separate public models and codecs.
 
-### 3. PX
-
-- Add `DnsMailMappingRecord` for the RFC 2163 IN-class format.
-- Register the PX codec only for `DnsClass.IN`.
-- Preserve non-IN PX as opaque `DnsRawRecord` data.
-- Keep raw IN PX rejected because its RDATA may contain message-relative pointers.
-
-### 4. NAPTR
+### 3. NAPTR
 
 - Add typed order, preference, flags, services, regular-expression, and replacement fields.
 - Encode each text field as one length-prefixed DNS character string.
@@ -56,14 +49,14 @@ These records share name-handling behavior but retain separate public models and
 - Emit replacement uncompressed and accept historical compression while decoding.
 - Do not execute DDDS rules or regular expressions.
 
-### 5. NXT
+### 4. NXT
 
 - Add the next-domain name and opaque legacy bitmap representation.
 - Keep the bitmap distinct from modern NSEC bitmap encoding.
 - Emit the name uncompressed and accept historical compression while decoding.
 - Do not implement denial-of-existence validation.
 
-### 6. SIG And KEY
+### 5. SIG And KEY
 
 - Add typed RFC 2535 fixed fields.
 - Preserve algorithm-specific signature and key bytes.
@@ -73,7 +66,7 @@ These records share name-handling behavior but retain separate public models and
 - Preserve the explicit legacy no-key form without treating these records as modern DNSSEC.
 - Do not implement signing, verification, or trust decisions.
 
-### 7. Documentation And Version
+### 6. Documentation And Version
 
 - Update `README.md` with supported records and wire-only limitations while preserving master's concise structure and getting-started links.
 - Update `AGENTS.md` architecture notes.
@@ -96,7 +89,7 @@ The extracted work provides typed wire encoding and decoding only. It does not i
 
 ## Acceptance Gates
 
-The class-aware encoder registry is already on master; do not re-extract it. Generic unrestricted lookup, restricted lookup, and raw-fallback test coverage remains outstanding and should be added independently of later typed records. Extract PX-specific fallback tests with PX.
+The class-aware encoder registry and PX implementation are already on master; do not re-extract them. Generic unrestricted lookup, restricted lookup, and raw-fallback test coverage remains outstanding and should be added independently of later typed records. Extract the remaining PX regression tests separately: non-IN opaque fallback, typed non-IN rejection, uncompressed wire output, and historical-compression decoding. Extract PX pre-write validation with Encoding Safeguards.
 
 For each topic:
 
