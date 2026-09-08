@@ -3,12 +3,15 @@
 namespace DnsCore.Model;
 
 public sealed class DnsRawRecord(DnsName name, byte[] data, DnsRecordType recordType, DnsClass @class, TimeSpan ttl)
-    : DnsRecord<byte[]>(name, ValidateData(data, recordType), recordType, @class, ttl)
+    : DnsRecord<byte[]>(name, ValidateData(data, recordType, @class), recordType, @class, ttl)
 {
     private protected override string DataToString() => BitConverter.ToString(Data);
 
-    private static byte[] ValidateData(byte[] data, DnsRecordType recordType)
+    private static byte[] ValidateData(byte[] data, DnsRecordType recordType, DnsClass @class)
     {
+        if (recordType == DnsRecordType.PX && @class != DnsClass.IN)
+            return data;
+
         return recordType is DnsRecordType.NS
                           or DnsRecordType.MD
                           or DnsRecordType.MF
