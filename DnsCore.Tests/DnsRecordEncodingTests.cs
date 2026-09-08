@@ -59,6 +59,9 @@ public class DnsRecordEncodingTests
             new DnsMailRenameRecord(ExampleName, mailName, RecordTtl),
             new DnsMailInformationRecord(ExampleName, mailName, errorMailboxName, RecordTtl),
             new DnsMailExchangeRecord(ExampleName, 10, mailName, RecordTtl),
+            new DnsMailMappingRecord(ExampleName, 0, DnsName.Empty, DnsName.Empty, RecordTtl),
+            new DnsMailMappingRecord(ExampleName, 50, mailName, DnsName.Parse("other.example.com"), RecordTtl),
+            new DnsMailMappingRecord(ExampleName, UInt16.MaxValue, mailName, DnsName.Empty, RecordTtl),
             new DnsStartOfAuthorityRecord(ExampleName, nameServerName, responsibleMailboxName, 1, TimeSpan.FromSeconds(62), TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(5), RecordTtl)
         ];
         var response = new DnsResponse(42, answers: records);
@@ -104,6 +107,8 @@ public class DnsRecordEncodingTests
 
         foreach (var dangerousType in dangerousTypes)
             Assert.ThrowsExactly<ArgumentException>(() => new DnsRawRecord(ExampleName, [], dangerousType, DnsClass.IN, RecordTtl));
+
+        Assert.ThrowsExactly<ArgumentException>(() => new DnsRawRecord(ExampleName, [0, 50, 0, 0], DnsRecordType.PX, DnsClass.IN, RecordTtl));
     }
 
     [TestMethod]

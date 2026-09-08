@@ -38,6 +38,9 @@ internal static class DnsAssert
             case DnsRecordType.MX:
                 Assert.AreEqual(((DnsMailExchangeRecord)expected).Data, ((DnsMailExchangeRecord)actual).Data);
                 break;
+            case DnsRecordType.PX when expected is DnsMailMappingRecord record:
+                Assert.AreEqual(record.Data, ((DnsMailMappingRecord)actual).Data);
+                break;
             case DnsRecordType.TXT:
                 Assert.AreEqual(((DnsTextRecord)expected).Data, ((DnsTextRecord)actual).Data);
                 break;

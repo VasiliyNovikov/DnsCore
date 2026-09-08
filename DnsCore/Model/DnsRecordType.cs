@@ -44,7 +44,7 @@ public enum DnsRecordType : ushort
     SIG = 24,
     // Public key
     KEY = 25,
-    // X.400 mail mapping information
+    // X.400 mail mapping information (IN class)
     PX = 26,
     // An IPv6 host address
     AAAA = 28,
