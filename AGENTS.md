@@ -65,7 +65,7 @@ DnsCore is a lightweight .NET DNS client and server library targeting net8.0, ne
   - `DnsDefaults` — Port=53, DefaultUdpMessageSize=256, MaxUdpMessageSize=512, DefaultTcpMessageSize=1024, MaxTcpMessageSize=65535
   - Backport polyfills for pre-net9.0: `Lock` class, `Task.WhenAny(ReadOnlySpan<Task>)`, `ArgumentOutOfRangeException` for `TimeSpan`
 - `IO/` — `DnsReader`/`DnsWriter` (both `ref struct` for zero-allocation stack use). Read/write big-endian integers via `IBinaryInteger<T>`. Support DNS message compression (RFC 1035) via offset↔name dictionaries
-- `Model/Encoding/` — `DnsRequestEncoder`/`DnsResponseEncoder` (public static Encode/Decode methods). Internally: `DnsRawMessageEncoder` handles header + sections, `DnsNameEncoder` handles name compression (pointer = offset | 0xC000), `DnsRecordEncoder` dispatches to type-specific data encoders. Throws `FormatException` on any encoding/decoding error
+- `Model/Encoding/` — `DnsRequestEncoder`/`DnsResponseEncoder` (public static Encode/Decode methods). Internally: `DnsRawMessageEncoder` handles header + sections, `DnsNameEncoder` handles name compression (pointer = offset | 0xC000), `DnsRecordEncoder` dispatches to type-specific data encoders. Internal registrations may restrict supported DNS classes; omitted restrictions support all classes, and unmatched types/classes select the raw codec, subject to existing raw-record safety checks. All built-in registrations currently remain unrestricted. Throws `FormatException` on any encoding/decoding error
 
 **Exception hierarchy:**
 - `DnsException` — base for all DNS exceptions
