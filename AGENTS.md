@@ -44,7 +44,8 @@ DnsCore is a lightweight .NET DNS client and server library targeting net8.0, ne
     - `DnsStartOfAuthorityRecord` (sealed) — SOA, wraps primary server, responsible mailbox, and timing data
     - `DnsMailInformationRecord` (sealed) — MINFO, wraps responsible and error mailboxes
     - `DnsMailExchangeRecord` (sealed) — MX, wraps preference and exchange name
-    - `DnsMailMappingRecord` (sealed) — PX, wraps preference and RFC 822/X.400 mapping names; IN-class wire format only. Embedded names are emitted uncompressed; historical compressed input is accepted. Non-IN PX uses `DnsRawRecord`, while raw IN PX is rejected
+    - `DnsResponsiblePersonRecord` (sealed) — RP, wraps mailbox and TXT-record name in all DNS classes. Root names indicate absent information. Embedded names are emitted uncompressed. No automatic TXT lookup
+    - `DnsMailMappingRecord` (sealed) — PX, wraps preference and RFC 822/X.400 mapping names; IN-class wire format only. Embedded names are emitted uncompressed. Non-IN PX uses `DnsRawRecord`, while raw IN PX is rejected
     - `DnsServiceRecord` (sealed) — SRV, wraps priority/weight/port/target data
     - `DnsTextRecord` — TXT, wraps `string`
     - `DnsRawRecord` (sealed) — untyped `byte[]` fallback; rejects record types whose RDATA can contain compression pointers
@@ -78,6 +79,8 @@ DnsCore is a lightweight .NET DNS client and server library targeting net8.0, ne
 
 **Request-reply pattern:** Responses are created via `request.Reply(answers)` or `request.Reply(DnsResponseStatus.NameError)` — this ensures ID and question correlation per RFC 1035.
 
+**Name compression compatibility:** For record fields with historical DNS name compression, accept historical compressed input when decoding, even when current specifications require uncompressed output. Encoding must follow the compression rules for the specific record and field. Retain existing malformed-name and compression-pointer validation.
+
 **Text parsing:** `DnsName.TryParse(string?, out DnsName?)` and `DnsLabel.TryParse(string?, out DnsLabel)` share the `Parse` syntax rules and return false for null or invalid input, with null/default outputs. Empty text succeeds (as does `.` for names). `Parse` and `ParseHostName` reject null with `ArgumentNullException`; invalid text throws `FormatException` with the validation error. Both types expose `TryParseHostName`, which retains the parsed result when DNS parsing succeeds but hostname validation fails.
 
 ## CI
@@ -109,6 +112,7 @@ The GitHub Actions pipeline (`.github/workflows/pipeline.yml`) has three jobs:
 - Tests do **not** run in parallel (`[DoNotParallelize]` assembly attribute) due to DNS port conflicts
 - Transport variants (UDP/TCP/All) tested via `[DataRow(DnsTransportType.Udp)]` / `[DataRow(DnsTransportType.Tcp)]` parameterization
 - Custom assertion helper: `DnsAssert.AreEqual()` performs type-aware record-level field comparison
+- For most DNS record types, prefer simple round-trip tests through the public encoding/decoding API. Add white-box tests (internal codec access, handcrafted packets, or exact wire-layout assertions) only when the specific coverage is critical and a human has explicitly approved it.
 
 **Server tests** (`DnsServerTests`):
 - Invoke platform-specific external tools against an in-process `DnsServer`
