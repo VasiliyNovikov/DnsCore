@@ -23,13 +23,15 @@ This branch preserves the complete implementation as a reference. Production cha
 
 ### 1. Encoding Safeguards
 
-- Add a defensive compression-offset check against `0x3FFF` before emitting a pointer.
-- Add record encoder validation hooks needed by typed codecs.
-- Add focused compression-boundary and typed-codec validation tests.
+- Add record encoder pre-write validation hooks needed by typed codecs; validate once per encoding operation, not again inside the data codec.
+- Add exact `0x3FFF`/`0x4000` compression-target boundary tests using records already on master, without depending on KEY, which is extracted later.
+- Add typed-codec validation tests that verify rejected data leaves the record's output region untouched, rather than only checking the exception.
 
 This is foundational and should not add new public record types.
 
-Preserve master's existing message-size and large-response coverage; do not extract duplicate size-limit checks or tests from the WIP reference. Add exact `0x3FFF`/`0x4000` compression-boundary checks using records already on master, without depending on KEY, which is extracted later.
+Preserve master's existing message-size and large-response coverage. Do not extract duplicate size-limit checks, buffer clipping, or large-message tests from the WIP reference. Master already restricts cached compression targets to `0x3FFF`; omit the second offset-limit check at pointer emission.
+
+For PX, move the existing mapping-name null checks before record output, but omit the redundant RDATA-length check (valid PX data is at most 512 bytes) and codec class check (the registry already restricts PX to IN). Retain decode validation and checks needed for default structs; constructor validation does not cover those values.
 
 ### 2. Simple Name-Bearing Records
 
