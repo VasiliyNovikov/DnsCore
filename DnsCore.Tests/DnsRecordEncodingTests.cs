@@ -135,6 +135,20 @@ public class DnsRecordEncodingTests
         DnsAssert.AreEqual(expected, actualResponse.Answers[0]);
     }
 
+    [TestMethod]
+    public void ResponsiblePerson_RoundTrip()
+    {
+        var expected = new DnsResponsiblePersonRecord(ExampleName, DnsName.Parse("mail.example.com"), DnsName.Parse("info.example.com"), RecordTtl);
+        var response = new DnsResponse(42, answers: [expected]);
+        Span<byte> buffer = stackalloc byte[DnsDefaults.MaxUdpMessageSize];
+
+        var length = DnsResponseEncoder.Encode(buffer, response);
+        var actualResponse = DnsResponseEncoder.Decode(buffer[..length]);
+
+        Assert.HasCount(1, actualResponse.Answers);
+        DnsAssert.AreEqual(expected, actualResponse.Answers[0]);
+    }
+
     private sealed class CustomByteRecord(DnsName name, byte[] data, DnsRecordType recordType, DnsClass @class, TimeSpan ttl)
         : DnsRecord<byte[]>(name, data, recordType, @class, ttl);
 }

@@ -31,6 +31,7 @@ internal static class DnsRecordEncoder
         RegisterTypeEncoder(DnsRecordType.SRV, DnsRecordServiceDataEncoder.Instance);
         RegisterTypeEncoder(DnsRecordType.DNAME, DnsRecordDNameDataEncoder.Instance);
         RegisterTypeEncoder(DnsRecordType.TXT, DnsRecordTextDataEncoder.Instance);
+        RegisterTypeEncoder(DnsRecordType.RP, DnsRecordResponsiblePersonDataEncoder.Instance);
         RegisterTypeEncoder(DnsRecordType.PX, DnsRecordMailMappingDataEncoder.Instance, DnsClass.IN);
     }
 
