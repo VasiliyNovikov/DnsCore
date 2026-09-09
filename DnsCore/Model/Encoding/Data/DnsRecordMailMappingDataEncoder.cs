@@ -10,6 +10,8 @@ internal sealed class DnsRecordMailMappingDataEncoder : DnsRecordDataEncoder<Dns
 
     protected override void EncodeData(ref DnsWriter writer, DnsMailMappingRecordData data)
     {
+        ArgumentNullException.ThrowIfNull(data.Map822);
+        ArgumentNullException.ThrowIfNull(data.MapX400);
         writer.Write(data.Preference);
         DnsNameEncoder.Encode(ref writer, data.Map822, false);
         DnsNameEncoder.Encode(ref writer, data.MapX400, false);
@@ -22,15 +24,6 @@ internal sealed class DnsRecordMailMappingDataEncoder : DnsRecordDataEncoder<Dns
 
     protected override DnsRecord<DnsMailMappingRecordData> CreateRecord(DnsName name, DnsMailMappingRecordData data, DnsRecordType recordType, DnsClass @class, TimeSpan ttl)
     {
-        if (@class != DnsClass.IN)
-            throw new FormatException("PX record data is only defined for the IN class");
         return new DnsMailMappingRecord(name, data.Preference, data.Map822, data.MapX400, ttl);
-    }
-
-    protected override void ValidateData(DnsMailMappingRecordData data)
-    {
-        ArgumentNullException.ThrowIfNull(data.Map822);
-        ArgumentNullException.ThrowIfNull(data.MapX400);
-        ValidateDataLength(checked(2 + GetUncompressedLength(data.Map822) + GetUncompressedLength(data.MapX400)));
     }
 }

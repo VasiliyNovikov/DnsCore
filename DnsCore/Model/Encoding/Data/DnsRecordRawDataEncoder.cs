@@ -8,15 +8,10 @@ internal sealed class DnsRecordRawDataEncoder : DnsRecordDataEncoder<byte[]>
 {
     public static readonly DnsRecordRawDataEncoder Instance = new();
 
-    public override void Validate(DnsRecord record)
+    public override void Encode(ref DnsWriter writer, DnsRecord record)
     {
         if (record is not DnsRawRecord)
             throw new NotSupportedException($"Encoding of {record.GetType().Name} is not supported");
-    }
-
-    public override void Encode(ref DnsWriter writer, DnsRecord record)
-    {
-        Validate(record);
         base.Encode(ref writer, record);
     }
 

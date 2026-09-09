@@ -21,17 +21,15 @@ This branch preserves the complete implementation as a reference. Production cha
 
 ## Extraction Order
 
-### 1. Encoding Safeguards
+### 1. Compression Boundary Tests
 
-- Add record encoder pre-write validation hooks needed by typed codecs; validate once per encoding operation, not again inside the data codec.
 - Add exact `0x3FFF`/`0x4000` compression-target boundary tests using records already on master, without depending on KEY, which is extracted later.
-- Add typed-codec validation tests that verify rejected data leaves the record's output region untouched, rather than only checking the exception.
 
-This is foundational and should not add new public record types.
+This is independent test coverage and should not add new public record types.
 
 Preserve master's existing message-size and large-response coverage. Do not extract duplicate size-limit checks, buffer clipping, or large-message tests from the WIP reference. Master already restricts cached compression targets to `0x3FFF`; omit the second offset-limit check at pointer emission.
 
-For PX, move the existing mapping-name null checks before record output, but omit the redundant RDATA-length check (valid PX data is at most 512 bytes) and codec class check (the registry already restricts PX to IN). Retain decode validation and checks needed for default structs; constructor validation does not cover those values.
+Do not add a separate record-level pre-write validation pass or tests promising untouched output on failure. Callers must discard failed encoding output. Preserve master's PX checks inside its data codec and retain codec-local encode/decode validation needed for malformed data and default structs.
 
 ### 2. Simple Name-Bearing Records
 
@@ -91,7 +89,7 @@ The extracted work provides typed wire encoding and decoding only. It does not i
 
 ## Acceptance Gates
 
-The class-aware encoder registry and PX implementation are already on master; do not re-extract them. Generic unrestricted lookup, restricted lookup, and raw-fallback test coverage remains outstanding and should be added independently of later typed records. Extract the remaining PX regression tests separately: non-IN opaque fallback, typed non-IN rejection, uncompressed wire output, and historical-compression decoding. Extract PX pre-write validation with Encoding Safeguards.
+The class-aware encoder registry and PX implementation are already on master; do not re-extract them. Generic unrestricted lookup, restricted lookup, and raw-fallback test coverage remains outstanding and should be added independently of later typed records. Extract the remaining PX regression tests separately: non-IN opaque fallback, typed non-IN rejection, uncompressed wire output, and historical-compression decoding.
 
 For each topic:
 

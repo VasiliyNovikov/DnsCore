@@ -58,15 +58,13 @@ internal static class DnsRecordEncoder
 
     public static void Encode(ref DnsWriter writer, DnsRecord record)
     {
-        var encoder = GetEncoder(record.RecordType, record.Class);
-        encoder.Validate(record);
         DnsRecordBaseEncoder.Encode(ref writer, record);
         writer.WriteTime(record.Ttl);
 
         var dataLenBuffer = writer.ProvideBufferAndAdvance(2);
 
         var dataPosition = writer.Position;
-        encoder.Encode(ref writer, record);
+        GetEncoder(record.RecordType, record.Class).Encode(ref writer, record);
 
         BinaryPrimitives.WriteUInt16BigEndian(dataLenBuffer, (ushort)(writer.Position - dataPosition));
     }

@@ -381,7 +381,7 @@ public class DnsRecordEncodingTests
     }
 
     [TestMethod]
-    public void Test_Encode_RecordDataAboveMaximum_ThrowsBeforeWritingRecord()
+    public void Test_Encode_RecordDataAboveMaximum_Throws()
     {
         var response = new DnsResponse(1, answers: [new DnsKeyRecord(ExampleName, 0, 3, 8, null, new byte[UInt16.MaxValue - 3], RecordTtl)]);
         var buffer = new byte[70_000];

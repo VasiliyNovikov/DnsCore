@@ -6,17 +6,12 @@ namespace DnsCore.Model.Encoding.Data;
 
 internal abstract class DnsRecordDataEncoder
 {
-    public virtual void Validate(DnsRecord record)
-    {
-        if (record is not DnsRawRecord)
-            throw new NotSupportedException($"Encoding of {record.GetType().Name} is not supported.");
-    }
-
     public virtual void Encode(ref DnsWriter writer, DnsRecord record)
     {
-        Validate(record);
         if (record is DnsRawRecord rawRecord)
             writer.Write(rawRecord.Data);
+        else
+            throw new NotSupportedException($"Encoding of {record.GetType().Name} is not supported.");
     }
 
     public abstract DnsRecord Decode(ref DnsReader reader, DnsName name, DnsRecordType recordType, DnsClass @class, TimeSpan ttl);
@@ -24,14 +19,6 @@ internal abstract class DnsRecordDataEncoder
 
 internal abstract class DnsRecordDataEncoder<T> : DnsRecordDataEncoder where T : notnull
 {
-    public override void Validate(DnsRecord record)
-    {
-        if (record is DnsRecord<T> typedRecord)
-            ValidateData(typedRecord.Data);
-        else
-            base.Validate(record);
-    }
-
     public override void Encode(ref DnsWriter writer, DnsRecord record)
     {
         if (record is DnsRecord<T> typedRecord)
