@@ -56,6 +56,10 @@ public enum DnsRecordType : ushort
     NAPTR = 35,
     // Non-terminal DNS name redirection
     DNAME = 39,
+    // Service binding (IN class)
+    SVCB = 64,
+    // HTTPS service binding (IN class)
+    HTTPS = 65,
     // A request for a transfer of an entire zone
     AXFR = 252,
     // A request for mailbox-related records (MB, MG or MR)
